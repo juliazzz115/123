@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Трекер статусов клиентов</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Трекер статусов клиентов</h1>
+
+        <!-- Переключатель режимов -->
+        <div class="mode-selector">
+            <label>
+                <input type="radio" name="mode" value="mode-a" checked>
+                Режим А (Подал сам → Пометить → Проверить)
+            </label>
+            <label>
+                <input type="radio" name="mode" value="mode-b">
+                Режим Б (Оплатил → Подано → Помечено → Проверено)
+            </label>
+        </div>
+
+        <!-- Секция добавления клиента -->
+        <div class="client-input">
+            <div class="input-group">
+                <select id="clientSelect" class="client-select">
+                    <option value="">-- Выберите клиента --</option>
+                </select>
+                <button id="addClientBtn" class="btn btn-primary">Добавить в таблицу</button>
+            </div>
+            <div class="input-group">
+                <input type="text" id="newClientName" placeholder="Имя нового клиента">
+                <button id="addNewClientBtn" class="btn btn-secondary">Создать клиента</button>
+            </div>
+        </div>
+
+        <!-- Таблица -->
+        <div class="table-container">
+            <table id="clientTable">
+                <thead>
+                    <tr id="tableHeader">
+                        <th>Имя клиента</th>
+                        <th>Подал сам</th>
+                        <th>Пометить</th>
+                        <th>Проверить</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
