@@ -2,6 +2,7 @@
 let clients = ['Иван Иванов', 'Петр Петров', 'Мария Сидорова', 'Анна Смирнова'];
 let tableData = [];
 let currentMode = 'mode-a';
+let csvData = [];
 
 // Конфигурация колонок для разных режимов
 const modeConfig = {
@@ -59,6 +60,12 @@ function attachEventListeners() {
             createNewClient();
         }
     });
+
+    // Обработчики для формы документа
+    document.getElementById('csvFile').addEventListener('change', handleCSVUpload);
+    document.getElementById('csvDataSelect').addEventListener('change', handleSelectChange);
+    document.getElementById('downloadDocBtn').addEventListener('click', downloadDocument);
+    document.getElementById('clearFormBtn').addEventListener('click', clearDocumentForm);
 }
 
 // Добавление клиента в таблицу
@@ -269,3 +276,144 @@ style.textContent = `
     }
 `;
 document.head.appendChild(style);
+
+// ============================================
+// ФУНКЦИИ ДЛЯ РАБОТЫ С ФОРМОЙ ДОКУМЕНТА
+// ============================================
+
+// Обработка загрузки CSV файла
+function handleCSVUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const text = e.target.result;
+        parseCSV(text);
+    };
+    reader.readAsText(file, 'UTF-8');
+}
+
+// Парсинг CSV данных
+function parseCSV(text) {
+    const lines = text.split('\n').filter(line => line.trim());
+
+    if (lines.length === 0) {
+        alert('CSV файл пустой');
+        return;
+    }
+
+    // Первая строка - заголовки
+    const headers = lines[0].split(',').map(h => h.trim());
+
+    // Остальные строки - данные
+    csvData = [];
+    for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(',').map(v => v.trim());
+        const row = {};
+
+        headers.forEach((header, index) => {
+            row[header] = values[index] || '';
+        });
+
+        csvData.push(row);
+    }
+
+    // Заполнение выпадающего списка
+    populateCSVSelect(headers);
+    showNotification(`CSV файл успешно загружен! Найдено ${csvData.length} записей`);
+}
+
+// Заполнение выпадающего списка данными из CSV
+function populateCSVSelect(headers) {
+    const select = document.getElementById('csvDataSelect');
+    select.innerHTML = '<option value="">-- Выберите запись --</option>';
+
+    csvData.forEach((row, index) => {
+        const option = document.createElement('option');
+        // Используем первый столбец как отображаемое значение
+        const firstValue = row[headers[0]] || `Запись ${index + 1}`;
+        option.value = index;
+        option.textContent = firstValue;
+        option.dataset.rowData = JSON.stringify(row);
+        select.appendChild(option);
+    });
+
+    select.disabled = false;
+}
+
+// Обработка выбора значения из списка
+function handleSelectChange(event) {
+    const select = event.target;
+    const selectedOption = select.options[select.selectedIndex];
+
+    if (!selectedOption.dataset.rowData) {
+        document.getElementById('selectedValue').value = '';
+        return;
+    }
+
+    const rowData = JSON.parse(selectedOption.dataset.rowData);
+    // Отображаем все данные выбранной строки
+    const displayValue = Object.entries(rowData)
+        .map(([key, value]) => `${key}: ${value}`)
+        .join(', ');
+
+    document.getElementById('selectedValue').value = displayValue;
+}
+
+// Скачивание документа
+function downloadDocument() {
+    // Сбор данных из формы
+    const staticField1 = document.getElementById('staticField1').value;
+    const staticField2 = document.getElementById('staticField2').value;
+    const staticField3 = document.getElementById('staticField3').value;
+    const selectedValue = document.getElementById('selectedValue').value;
+
+    // Проверка заполненности
+    if (!staticField1 && !staticField2 && !staticField3 && !selectedValue) {
+        alert('Пожалуйста, заполните хотя бы одно поле');
+        return;
+    }
+
+    // Формирование содержимого документа
+    const documentContent = `
+ФОРМА ДОКУМЕНТА
+================
+
+Название документа: ${staticField1 || 'Не указано'}
+Дата создания: ${staticField2 || 'Не указана'}
+Описание: ${staticField3 || 'Не указано'}
+
+Данные из CSV:
+${selectedValue || 'Не выбрано'}
+
+Создано: ${new Date().toLocaleString('ru-RU')}
+    `.trim();
+
+    // Создание и скачивание файла
+    const blob = new Blob([documentContent], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `document_${Date.now()}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    showNotification('Документ успешно скачан!');
+}
+
+// Очистка формы документа
+function clearDocumentForm() {
+    document.getElementById('staticField1').value = '';
+    document.getElementById('staticField2').value = '';
+    document.getElementById('staticField3').value = '';
+    document.getElementById('csvFile').value = '';
+    document.getElementById('csvDataSelect').innerHTML = '<option value="">-- Сначала загрузите CSV файл --</option>';
+    document.getElementById('csvDataSelect').disabled = true;
+    document.getElementById('selectedValue').value = '';
+    csvData = [];
+
+    showNotification('Форма очищена');
+}

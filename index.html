@@ -52,6 +52,55 @@
                 </tbody>
             </table>
         </div>
+
+        <!-- Секция формы документа -->
+        <div class="document-section">
+            <h2>Форма документа</h2>
+
+            <div class="document-form">
+                <!-- Статичные поля -->
+                <div class="form-group">
+                    <label for="staticField1">Название документа:</label>
+                    <input type="text" id="staticField1" placeholder="Введите название документа">
+                </div>
+
+                <div class="form-group">
+                    <label for="staticField2">Дата создания:</label>
+                    <input type="date" id="staticField2">
+                </div>
+
+                <div class="form-group">
+                    <label for="staticField3">Описание:</label>
+                    <textarea id="staticField3" placeholder="Введите описание документа" rows="3"></textarea>
+                </div>
+
+                <!-- Загрузка CSV файла -->
+                <div class="form-group">
+                    <label for="csvFile">Загрузить CSV файл:</label>
+                    <input type="file" id="csvFile" accept=".csv">
+                    <small>Загрузите CSV файл для заполнения выпадающего списка</small>
+                </div>
+
+                <!-- Выпадающий список из CSV -->
+                <div class="form-group">
+                    <label for="csvDataSelect">Выберите данные из CSV:</label>
+                    <select id="csvDataSelect" disabled>
+                        <option value="">-- Сначала загрузите CSV файл --</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="selectedValue">Выбранное значение:</label>
+                    <input type="text" id="selectedValue" readonly placeholder="Здесь появится выбранное значение">
+                </div>
+
+                <!-- Кнопка скачивания -->
+                <div class="form-actions">
+                    <button id="downloadDocBtn" class="btn btn-success">Скачать документ</button>
+                    <button id="clearFormBtn" class="btn btn-secondary">Очистить форму</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="script.js"></script>
