@@ -202,46 +202,20 @@
   <!-- STEP 4: ZUS -->
   <div class="card" id="step-zus">
     <div class="step-head"><span class="step-num">4</span><h2>ZUS za ten okres</h2></div>
-    <p class="step-desc">Wybierz fazę działalności — od tego zależy, jakie składki społeczne odliczasz od przychodu. Stawki i progi prawne edytujesz w zakładce <strong>Ustawienia</strong>.</p>
+    <p class="step-desc">Fazę ZUS ustawiasz raz w zakładce <strong>Ustawienia</strong> (albo automatycznie na podstawie daty rozpoczęcia działalności) — tutaj widzisz tylko wynik dla tego miesiąca. Zmieniaj coś poniżej tylko, jeśli akurat ten miesiąc naprawdę różni się od reguły.</p>
 
-    <div class="phase-options">
-      <label class="phase-option">
-        <input type="radio" name="phase" id="phaseStart" value="start" checked>
-        <span><span class="t">Ulga na start (miesiące 1–6/7)</span><span class="d">Przez pierwsze 6 pełnych miesięcy kalendarzowych nie płacisz składek społecznych — tylko składkę zdrowotną. Kod tytułu ubezpieczenia: 0570 (tylko zdrowotne).</span></span>
-      </label>
-      <label class="phase-option">
-        <input type="radio" name="phase" id="phasePref" value="pref">
-        <span><span class="t">Preferencyjny ZUS (kolejne 24 miesiące)</span><span class="d">Składka społeczna liczona od 30% minimalnego wynagrodzenia, plus składka zdrowotna. Kod tytułu ubezpieczenia: 0570.</span></span>
-      </label>
-      <label class="phase-option">
-        <input type="radio" name="phase" id="phaseMaly" value="maly">
-        <span><span class="t">Mały ZUS Plus (do 36 miesięcy w każdych 60)</span><span class="d">Składka społeczna liczona od dochodu (dla ryczałtu: 50% przychodu) za rok poprzedni — dostępny, jeśli przychód za rok poprzedni nie przekroczył 120 000 zł. Kod tytułu ubezpieczenia: 0590.</span></span>
-      </label>
-      <label class="phase-option">
-        <input type="radio" name="phase" id="phaseFull" value="full">
-        <span><span class="t">Pełny ZUS (po wykorzystaniu ulg)</span><span class="d">Standardowa składka społeczna (60% prognozowanego przeciętnego wynagrodzenia), plus składka zdrowotna. Kod tytułu ubezpieczenia: 0510.</span></span>
-      </label>
-    </div>
+    <div class="hint-box" id="zusPhaseHint" style="margin-left:0;"></div>
 
     <div class="field-grid">
-      <div class="field" id="chorobowaField" style="display:none;">
-        <label style="flex-direction:row; align-items:center; gap:8px; display:flex;">
-          <input type="checkbox" id="chorobowaCheck" checked style="width:auto;">
-          Dobrowolne ubezpieczenie chorobowe
-        </label>
-        <span class="unit-note">wpływa na domyślną kwotę składki społecznej poniżej</span>
-      </div>
-    </div>
-
-    <div class="field-grid" id="malyZusFields" style="display:none; margin-top:14px;">
       <div class="field">
-        <label for="malyRevenuePrevInput">Przychód za rok poprzedni</label>
-        <input type="number" id="malyRevenuePrevInput" value="0" step="0.01" min="0">
-        <span class="unit-note">zł — musi być ≤ 120 000 zł, żeby Mały ZUS Plus przysługiwał</span>
-      </div>
-      <div class="field">
-        <label for="malyDaysPrevInput">Dni prowadzenia działalności w roku poprzednim</label>
-        <input type="number" id="malyDaysPrevInput" value="365" step="1" min="1" max="366">
+        <label for="phaseOverrideSelect">Faza ZUS tylko dla tego miesiąca (rzadko potrzebne)</label>
+        <select id="phaseOverrideSelect">
+          <option value="">— użyj ustawienia automatycznego —</option>
+          <option value="start">Ulga na start</option>
+          <option value="pref">Preferencyjny ZUS</option>
+          <option value="maly">Mały ZUS Plus</option>
+          <option value="full">Pełny ZUS</option>
+        </select>
       </div>
     </div>
 
@@ -257,7 +231,8 @@
       <div class="field">
         <label for="socialInput">Składka społeczna za ten okres (do odliczenia od podatku)</label>
         <input type="number" id="socialInput" value="0" step="0.01" min="0">
-        <span class="unit-note">zł — domyślnie suma z tabeli powyżej, możesz nadpisać ręcznie</span>
+        <span class="unit-note">domyślnie wyliczona automatycznie — jeśli zmienisz ręcznie, zapamiętamy to tylko dla tego miesiąca.
+          <button type="button" class="link-btn" id="socialResetBtn" style="padding:0;">przelicz automatycznie</button></span>
       </div>
     </div>
 
@@ -365,7 +340,43 @@
       <div class="field"><label for="sellerBankName">Nazwa banku (opcjonalnie)</label><input type="text" id="sellerBankName" placeholder="PKO BANK POLSKI S.A."></div>
       <div class="field"><label for="sellerBankSwift">SWIFT/BIC (opcjonalnie)</label><input type="text" id="sellerBankSwift" placeholder="BPKOPLPW"></div>
     </div>
-    <div class="hint-box" id="phaseSuggestHint" style="margin-left:0;"></div>
+  </div>
+
+  <!-- ZUS phase: set once -->
+  <div class="card settings-card">
+    <div class="step-head"><h2>Faza ZUS — ustaw raz</h2></div>
+    <p class="step-desc" style="margin-left:0;">To jedyne miejsce, w którym decydujesz o fazie ZUS. Przy trybie automatycznym każdy nowy miesiąc sam dostanie właściwą fazę na podstawie daty rozpoczęcia działalności (powyżej) — nie musisz nic klikać w zakładce Praca.</p>
+    <div class="field-grid">
+      <div class="field">
+        <label for="zusPhaseModeSelect">Tryb fazy ZUS</label>
+        <select id="zusPhaseModeSelect">
+          <option value="auto">Automatycznie: 6 mies. ulga na start → 24 mies. preferencyjny → potem pełny ZUS</option>
+          <option value="start">Zawsze: Ulga na start</option>
+          <option value="pref">Zawsze: Preferencyjny ZUS</option>
+          <option value="maly">Zawsze: Mały ZUS Plus</option>
+          <option value="full">Zawsze: Pełny ZUS</option>
+        </select>
+      </div>
+      <div class="field">
+        <label style="flex-direction:row; align-items:center; gap:8px; display:flex; margin-top:8px;">
+          <input type="checkbox" id="chorobowaGlobalCheck" checked style="width:auto;">
+          Dobrowolne ubezpieczenie chorobowe
+        </label>
+        <span class="unit-note">wpływa na wysokość składki społecznej (nie dotyczy fazy „Ulga na start”)</span>
+      </div>
+    </div>
+    <div class="field-grid" id="malyZusSettingsFields" style="display:none; margin-top:14px;">
+      <div class="field">
+        <label for="malyRevenuePrevInput">Przychód za rok poprzedni</label>
+        <input type="number" id="malyRevenuePrevInput" value="0" step="0.01" min="0">
+        <span class="unit-note">zł — musi być ≤ 120 000 zł, żeby Mały ZUS Plus przysługiwał; aktualizuj raz w roku</span>
+      </div>
+      <div class="field">
+        <label for="malyDaysPrevInput">Dni prowadzenia działalności w roku poprzednim</label>
+        <input type="number" id="malyDaysPrevInput" value="365" step="1" min="1" max="366">
+      </div>
+    </div>
+    <div class="hint-box" id="zusModeHint" style="margin-left:0; margin-top:14px;"></div>
   </div>
 
   <!-- Payment destinations -->
