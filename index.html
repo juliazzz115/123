@@ -29,6 +29,7 @@
     <div class="field-grid">
       <div class="field"><label for="sellerName">Nazwa firmy / imię i nazwisko</label><input type="text" id="sellerName" placeholder="Jan Kowalski"></div>
       <div class="field"><label for="sellerNip">NIP</label><input type="text" id="sellerNip" placeholder="1234567890"></div>
+      <div class="field"><label for="sellerPesel">PESEL (do ZUS)</label><input type="text" id="sellerPesel" placeholder="00000000000" maxlength="11"></div>
       <div class="field"><label for="sellerStreet">Ulica i numer</label><input type="text" id="sellerStreet" placeholder="ul. Przykładowa 1/2"></div>
       <div class="field"><label for="sellerZipCity">Kod pocztowy i miasto</label><input type="text" id="sellerZipCity" placeholder="00-000 Warszawa"></div>
       <div class="field"><label for="sellerEmail">E-mail (opcjonalnie)</label><input type="email" id="sellerEmail"></div>
@@ -187,15 +188,19 @@
     <div class="phase-options">
       <label class="phase-option">
         <input type="radio" name="phase" id="phaseStart" value="start" checked>
-        <span><span class="t">Ulga na start (miesiące 1–6/7)</span><span class="d">Przez pierwsze 6 pełnych miesięcy kalendarzowych nie płacisz składek społecznych — tylko składkę zdrowotną.</span></span>
+        <span><span class="t">Ulga na start (miesiące 1–6/7)</span><span class="d">Przez pierwsze 6 pełnych miesięcy kalendarzowych nie płacisz składek społecznych — tylko składkę zdrowotną. Kod tytułu ubezpieczenia: 0570 (tylko zdrowotne).</span></span>
       </label>
       <label class="phase-option">
         <input type="radio" name="phase" id="phasePref" value="pref">
-        <span><span class="t">Preferencyjny ZUS (kolejne 24 miesiące)</span><span class="d">Składka społeczna liczona od 30% minimalnego wynagrodzenia, plus składka zdrowotna.</span></span>
+        <span><span class="t">Preferencyjny ZUS (kolejne 24 miesiące)</span><span class="d">Składka społeczna liczona od 30% minimalnego wynagrodzenia, plus składka zdrowotna. Kod tytułu ubezpieczenia: 0570.</span></span>
+      </label>
+      <label class="phase-option">
+        <input type="radio" name="phase" id="phaseMaly" value="maly">
+        <span><span class="t">Mały ZUS Plus (do 36 miesięcy w każdych 60)</span><span class="d">Składka społeczna liczona od dochodu (dla ryczałtu: 50% przychodu) za rok poprzedni — dostępny, jeśli przychód za rok poprzedni nie przekroczył 120 000 zł. Kod tytułu ubezpieczenia: 0590.</span></span>
       </label>
       <label class="phase-option">
         <input type="radio" name="phase" id="phaseFull" value="full">
-        <span><span class="t">Pełny ZUS (po 30 miesiącach)</span><span class="d">Standardowa składka społeczna (60% prognozowanego przeciętnego wynagrodzenia), plus składka zdrowotna.</span></span>
+        <span><span class="t">Pełny ZUS (po wykorzystaniu ulg)</span><span class="d">Standardowa składka społeczna (60% prognozowanego przeciętnego wynagrodzenia), plus składka zdrowotna. Kod tytułu ubezpieczenia: 0510.</span></span>
       </label>
     </div>
 
@@ -207,14 +212,52 @@
         </label>
         <span class="unit-note">wpływa na domyślną kwotę składki społecznej poniżej</span>
       </div>
-      <div class="field" id="socialField" style="display:none;">
-        <label for="socialInput">Składka społeczna za ten okres</label>
-        <input type="number" id="socialInput" value="456.19" step="0.01" min="0">
-        <span class="unit-note">zł — odliczana w 100% od przychodu</span>
+    </div>
+
+    <div class="field-grid" id="malyZusFields" style="display:none; margin-top:14px;">
+      <div class="field">
+        <label for="malyRevenuePrevInput">Przychód za rok poprzedni</label>
+        <input type="number" id="malyRevenuePrevInput" value="0" step="0.01" min="0">
+        <span class="unit-note">zł — musi być ≤ 120 000 zł, żeby Mały ZUS Plus przysługiwał</span>
+      </div>
+      <div class="field">
+        <label for="malyDaysPrevInput">Dni prowadzenia działalności w roku poprzednim</label>
+        <input type="number" id="malyDaysPrevInput" value="365" step="1" min="1" max="366">
       </div>
     </div>
 
     <div class="field-grid" style="margin-top:14px;">
+      <div class="field">
+        <label for="wypadkoweRateInput">Stopa składki wypadkowej</label>
+        <input type="number" id="wypadkoweRateInput" value="1.67" step="0.01" min="0">
+        <span class="unit-note">% — 1,67% domyślnie dla ≤9 ubezpieczonych, zależy od PKD</span>
+      </div>
+      <div class="field">
+        <label for="minWageInput">Minimalne wynagrodzenie (rok bieżący)</label>
+        <input type="number" id="minWageInput" value="4806" step="0.01" min="0">
+        <span class="unit-note">zł — podstawa dla ZUS preferencyjnego i progu Funduszu Pracy</span>
+      </div>
+      <div class="field">
+        <label for="avgWageForecastInput">Prognozowane przeciętne wynagrodzenie (rok bieżący)</label>
+        <input type="number" id="avgWageForecastInput" value="9421" step="0.01" min="0">
+        <span class="unit-note">zł — podstawa dla pełnego ZUS i górnego limitu Małego ZUS Plus</span>
+      </div>
+    </div>
+
+    <p class="step-desc" style="margin-left:0; margin-top:16px;"><strong>Rozkład składki społecznej (wyliczenie automatyczne, informacyjnie)</strong></p>
+    <div class="table-wrap" style="margin-left:0;" id="socialBreakdownWrap">
+      <table>
+        <thead><tr><th>Emerytalna</th><th>Rentowa</th><th>Wypadkowa</th><th>Chorobowa</th><th>Fundusz Pracy</th><th>Razem</th></tr></thead>
+        <tbody id="socialBreakdownBody"><tr><td colspan="6">—</td></tr></tbody>
+      </table>
+    </div>
+
+    <div class="field-grid" style="margin-top:14px;">
+      <div class="field">
+        <label for="socialInput">Składka społeczna za ten okres (do odliczenia od podatku)</label>
+        <input type="number" id="socialInput" value="0" step="0.01" min="0">
+        <span class="unit-note">zł — domyślnie suma z tabeli powyżej, możesz nadpisać ręcznie</span>
+      </div>
       <div class="field">
         <label for="tierModeSelect">Składka zdrowotna do zastosowania</label>
         <select id="tierModeSelect">
@@ -300,12 +343,38 @@
     </div>
   </div>
 
+  <!-- STEP 7: ZUS declaration helper -->
+  <div class="card">
+    <div class="step-head"><span class="step-num">7</span><h2>Deklaracja ZUS — <span id="declTitlePeriod">brak okresu</span></h2></div>
+    <p class="step-desc">Od 2022 r. deklarację ZUS DRA składa się co miesiąc (elektronicznie przez PUE/eZUS), nawet jeśli kwoty się nie zmieniają. Poniżej gotowe dane do przepisania — termin: do 20. dnia następnego miesiąca.</p>
+
+    <div class="hint-box" id="declKodTytulu" style="margin-left:0;"></div>
+
+    <div class="table-wrap" style="margin-left:0; margin-top:14px;">
+      <table>
+        <thead><tr><th>Składka</th><th class="num">Podstawa wymiaru</th><th class="num">Kwota</th></tr></thead>
+        <tbody id="declBody"></tbody>
+        <tfoot><tr><td>Razem do zapłaty</td><td></td><td class="num" id="declTotal">0,00</td></tr></tfoot>
+      </table>
+    </div>
+
+    <p class="step-desc" style="margin-left:0; margin-top:22px;"><strong>Roczne rozliczenie składki zdrowotnej (ZUS DRA, termin do 20 maja)</strong></p>
+    <div class="hint-box" id="declAnnualHealth" style="margin-left:0;"></div>
+
+    <div class="notice-box" style="margin-top:16px;">
+      <strong>Ważne:</strong> to wyliczenie pomocnicze, nie oficjalny formularz — nie mam dostępu do bieżących ustawień Twojego
+      konta w ZUS (aktualny kod tytułu ubezpieczenia, zwolnienia, dotychczas wykorzystane miesiące ulg, limit 36/60 miesięcy dla
+      Małego ZUS Plus, limit 24 miesięcy dla ZUS preferencyjnego, faktyczna stopa procentowa składki wypadkowej wg Twojego PKD).
+      Deklarację złóż i zweryfikuj przez <strong>PUE/eZUS</strong> (www.zus.pl) — tam też zobaczysz dokładne, oficjalne kwoty.
+    </div>
+  </div>
+
   <footer class="note">
     <strong>Czego ta aplikacja NIE robi:</strong> nie wysyła faktur do KSeF (to wymaga Twojego logowania — Profil Zaufany,
-    podpis kwalifikowany lub token — przez oficjalną Aplikację Podatnika KSeF albo e-mikrofirmę) i nie generuje deklaracji
-    PIT-28 ani ZUS DRA (te składa się przez e-Urząd Skarbowy / PUE-eZUS, zwykle raz w roku / raz w miesiącu, z własnym
-    uwierzytelnieniem). Ten kalkulator liczy za Ciebie kwoty i pilnuje ewidencji, żebyś miała gotowe dane do wpisania
-    w tamtych systemach.<br><br>
+    podpis kwalifikowany lub token — przez oficjalną Aplikację Podatnika KSeF albo e-mikrofirmę) i nie składa deklaracji
+    PIT-28 ani ZUS DRA elektronicznie (te składa się przez e-Urząd Skarbowy / PUE-eZUS, z własnym uwierzytelnieniem — Profil
+    Zaufany albo podpis kwalifikowany). Ten kalkulator liczy za Ciebie kwoty i pilnuje ewidencji, żebyś miała gotowe dane do
+    wpisania w tamtych systemach.<br><br>
     <strong>Wzór podatku:</strong> Podstawa opodatkowania = suma podstawy przychodu &minus; składka społeczna (100%, tylko w fazie preferencyjnej
     lub pełnego ZUS) &minus; 50% zapłaconej składki zdrowotnej. Jeśli w tabeli używasz kilku stawek ryczałtu, odliczenia są dzielone
     proporcjonalnie do udziału każdej stawki w przychodzie, a podatek liczony osobno dla każdej z nich i sumowany. Przychód narastająco
@@ -313,10 +382,13 @@
     ewentualny przychód sprzed rozpoczęcia korzystania z niej (krok 2).<br><br>
     <strong>Domyślne kwoty (stan prawny 2026 r.):</strong> składka zdrowotna ryczałtu — 498,35 zł / 830,58 zł / 1495,04 zł (progi
     60 000 zł i 300 000 zł, 9% od odpowiednio 60%/100%/180% przeciętnego wynagrodzenia z IV kw. 2025 = 9228,64 zł); ulga na start —
-    6 pełnych miesięcy kalendarzowych bez składek społecznych; preferencyjny ZUS — 24 miesiące, podstawa 30% minimalnego wynagrodzenia
-    (1441,80 zł), składka ok. 456,19 zł (z chorobowym) lub 420,86 zł (bez); pełny ZUS — podstawa 60% prognozowanego przeciętnego
-    wynagrodzenia (5652,60 zł), składka ok. 1926,76 zł (z chorobowym) lub 1788,29 zł (bez). Twoja sytuacja może się różnić —
-    wszystkie kwoty można zmienić ręcznie. Wyliczenie ma charakter pomocniczy i nie zastępuje weryfikacji księgowej.<br><br>
+    6 pełnych miesięcy kalendarzowych bez składek społecznych (tylko zdrowotna); preferencyjny ZUS — 24 miesiące, podstawa 30%
+    minimalnego wynagrodzenia (1441,80 zł); Mały ZUS Plus — do 36 miesięcy w każdych 60, podstawa liczona od dochodu za rok
+    poprzedni (dla ryczałtu: 50% przychodu), dostępny przy przychodzie za rok poprzedni do 120 000 zł; pełny ZUS — podstawa 60%
+    prognozowanego przeciętnego wynagrodzenia (5652,60 zł). Składki społeczne liczone są ze standardowych stawek: emerytalna
+    19,52%, rentowa 8%, wypadkowa 1,67% (zależnie od PKD), chorobowa dobrowolna 2,45%, Fundusz Pracy 2,45% (gdy podstawa ≥
+    minimalne wynagrodzenie). Twoja sytuacja może się różnić — wszystkie kwoty i stawki można zmienić ręcznie. Wyliczenie ma
+    charakter pomocniczy i nie zastępuje weryfikacji księgowej.<br><br>
     <strong>Zapis danych:</strong> wszystko zapisuje się automatycznie w pamięci przeglądarki (localStorage) na tym urządzeniu.
     Rób regularnie kopię JSON (krok 6), żeby nie stracić danych przy czyszczeniu przeglądarki i móc pracować na innym urządzeniu.
   </footer>

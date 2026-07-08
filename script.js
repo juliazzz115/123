@@ -7,6 +7,8 @@
   ];
   const MONTHS_PL = ['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec','Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'];
   const FORMA_PLATNOSCI = { 'przelew': 6, 'gotówka': 1, 'karta': 2, 'BLIK': 7 };
+  const KOD_TYTULU = { start: '0570 (tylko zdrowotne)', pref: '0570', full: '0510', maly: '0590' };
+  const PHASE_LABELS = { start: 'ulga na start', pref: 'preferencyjny ZUS', maly: 'Mały ZUS Plus', full: 'pełny ZUS' };
 
   const fmt = n => (Math.round((n||0)*100)/100).toLocaleString('pl-PL', {minimumFractionDigits:2, maximumFractionDigits:2});
   const round2 = n => Math.round((n||0)*100)/100;
@@ -17,12 +19,14 @@
   // ---------- state ----------
   function defaultState(){
     return {
-      profile: { name:'', nip:'', street:'', zipCity:'', email:'', businessStart:'', bank:'', bankName:'', bankSwift:'' },
+      profile: { name:'', nip:'', pesel:'', street:'', zipCity:'', email:'', businessStart:'', bank:'', bankName:'', bankSwift:'' },
       settings: {
         thresholdLow: 60000, thresholdHigh: 300000,
         healthLow: 498.35, healthMid: 830.58, healthHigh: 1495.04,
         tierMode: 'auto',
-        openingByYear: {}
+        wypadkoweRate: 1.67, minWage: 4806, avgWageForecast: 9421,
+        openingByYear: {},
+        malyZusIncomeByYear: {}
       },
       periods: {},
       activePeriod: null,
@@ -38,7 +42,11 @@
       const d = defaultState();
       return {
         profile: {...d.profile, ...(parsed.profile||{})},
-        settings: {...d.settings, ...(parsed.settings||{}), openingByYear: {...((parsed.settings||{}).openingByYear||{})}},
+        settings: {
+          ...d.settings, ...(parsed.settings||{}),
+          openingByYear: {...((parsed.settings||{}).openingByYear||{})},
+          malyZusIncomeByYear: {...((parsed.settings||{}).malyZusIncomeByYear||{})}
+        },
         periods: parsed.periods || {},
         activePeriod: parsed.activePeriod || null,
         idCounter: parsed.idCounter || 1
@@ -49,15 +57,44 @@
   let state = loadState();
   function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
 
+  function computeSocialBreakdown(period, key){
+    const s = state.settings;
+    const phase = period.phase;
+    let podstawa = 0;
+    if(phase === 'pref'){
+      podstawa = round2(0.3 * s.minWage);
+    } else if(phase === 'full'){
+      podstawa = round2(0.6 * s.avgWageForecast);
+    } else if(phase === 'maly'){
+      const year = key.slice(0,4);
+      const info = s.malyZusIncomeByYear[year] || { revenue:0, days:365 };
+      const dochodRoczny = 0.5 * (info.revenue || 0);
+      const days = info.days || 365;
+      const raw = days > 0 ? (dochodRoczny/days)*30 : 0;
+      const floor = 0.3*s.minWage, ceil = 0.6*s.avgWageForecast;
+      podstawa = round2(Math.min(ceil, Math.max(floor, raw)));
+    }
+    const active = phase !== 'start';
+    const emerytalna = active ? round2(podstawa*0.1952) : 0;
+    const rentowa = active ? round2(podstawa*0.08) : 0;
+    const wypadkowe = active ? round2(podstawa*(s.wypadkoweRate/100)) : 0;
+    const chorobowe = (active && period.chorobowa) ? round2(podstawa*0.0245) : 0;
+    const fp = (active && podstawa >= s.minWage) ? round2(podstawa*0.0245) : 0;
+    const total = round2(emerytalna+rentowa+wypadkowe+chorobowe+fp);
+    return { podstawa, emerytalna, rentowa, wypadkowe, chorobowe, fp, total };
+  }
+
   function ensurePeriod(key){
     if(!state.periods[key]){
-      let inherited = { phase:'start', chorobowa:true, social:456.19 };
+      let inherited = { phase:'start', chorobowa:true };
       const priorKeys = Object.keys(state.periods).filter(k => k < key).sort();
       if(priorKeys.length){
         const prev = state.periods[priorKeys[priorKeys.length-1]];
-        inherited = { phase: prev.phase, chorobowa: prev.chorobowa, social: prev.social };
+        inherited = { phase: prev.phase, chorobowa: prev.chorobowa };
       }
-      state.periods[key] = { ...inherited, rows: [] };
+      const period = { ...inherited, social: 0, rows: [] };
+      period.social = computeSocialBreakdown(period, key).total;
+      state.periods[key] = period;
     }
     return state.periods[key];
   }
@@ -619,29 +656,52 @@ Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
   // ---------- ZUS / phase handling ----------
   function updatePhaseFieldVisibility(phase){
     document.getElementById('chorobowaField').style.display = phase === 'start' ? 'none' : 'flex';
-    document.getElementById('socialField').style.display = phase === 'start' ? 'none' : 'flex';
+    document.getElementById('malyZusFields').style.display = phase === 'maly' ? 'grid' : 'none';
   }
 
-  function onPhaseOrChorobowaChange(){
+  function renderSocialBreakdownTable(period, key){
+    const body = document.getElementById('socialBreakdownBody');
+    if(!period){ body.innerHTML = '<tr><td colspan="6">—</td></tr>'; return null; }
+    const b = computeSocialBreakdown(period, key);
+    body.innerHTML = `<tr><td>${fmt(b.emerytalna)}</td><td>${fmt(b.rentowa)}</td><td>${fmt(b.wypadkowe)}</td><td>${fmt(b.chorobowe)}</td><td>${fmt(b.fp)}</td><td><strong>${fmt(b.total)}</strong></td></tr>`;
+    return b;
+  }
+
+  function onZusInputsChange(){
     if(!state.activePeriod) return;
-    const phase = document.getElementById('phaseStart').checked ? 'start' : document.getElementById('phasePref').checked ? 'pref' : 'full';
+    const key = state.activePeriod;
+    const phase = document.getElementById('phaseStart').checked ? 'start'
+      : document.getElementById('phasePref').checked ? 'pref'
+      : document.getElementById('phaseMaly').checked ? 'maly' : 'full';
     const chorobowa = document.getElementById('chorobowaCheck').checked;
-    const p = ensurePeriod(state.activePeriod);
+    const p = ensurePeriod(key);
     p.phase = phase;
     p.chorobowa = chorobowa;
     updatePhaseFieldVisibility(phase);
-    if(phase !== 'start'){
-      p.social = phase === 'pref' ? (chorobowa ? 456.19 : 420.86) : (chorobowa ? 1926.76 : 1788.29);
-      document.getElementById('socialInput').value = p.social;
+
+    if(phase === 'maly'){
+      const year = key.slice(0,4);
+      state.settings.malyZusIncomeByYear[year] = {
+        revenue: parseFloat(document.getElementById('malyRevenuePrevInput').value) || 0,
+        days: parseFloat(document.getElementById('malyDaysPrevInput').value) || 365
+      };
     }
+
+    const b = renderSocialBreakdownTable(p, key);
+    p.social = b.total;
+    document.getElementById('socialInput').value = p.social;
+
     saveState();
     updatePhaseSuggestHint();
     updateSummary();
     renderYearSummary();
     renderPeriodList();
   }
-  ['phaseStart','phasePref','phaseFull','chorobowaCheck'].forEach(id => {
-    document.getElementById(id).addEventListener('change', onPhaseOrChorobowaChange);
+  ['phaseStart','phasePref','phaseMaly','phaseFull','chorobowaCheck'].forEach(id => {
+    document.getElementById(id).addEventListener('change', onZusInputsChange);
+  });
+  ['malyRevenuePrevInput','malyDaysPrevInput'].forEach(id => {
+    document.getElementById(id).addEventListener('input', onZusInputsChange);
   });
   document.getElementById('socialInput').addEventListener('input', () => {
     if(!state.activePeriod) return;
@@ -664,6 +724,20 @@ Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
     const year = state.activePeriod ? state.activePeriod.slice(0,4) : String(new Date().getFullYear());
     state.settings.openingByYear[year] = parseFloat(document.getElementById('openingByYearInput').value) || 0;
     saveState(); updateSummary(); renderYearSummary(); renderPeriodList();
+  });
+
+  const zusRateFieldMap = { wypadkoweRateInput:'wypadkoweRate', minWageInput:'minWage', avgWageForecastInput:'avgWageForecast' };
+  Object.keys(zusRateFieldMap).forEach(id => {
+    document.getElementById(id).addEventListener('input', () => {
+      state.settings[zusRateFieldMap[id]] = parseFloat(document.getElementById(id).value) || 0;
+      if(state.activePeriod){
+        const p = state.periods[state.activePeriod];
+        const b = renderSocialBreakdownTable(p, state.activePeriod);
+        p.social = b.total;
+        document.getElementById('socialInput').value = p.social;
+      }
+      saveState(); updateSummary(); renderYearSummary(); renderPeriodList();
+    });
   });
 
   // ---------- result summary ----------
@@ -705,6 +779,78 @@ Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
       : 'Wybierz okres w kroku 2, żeby zobaczyć wyliczenia.';
 
     document.getElementById('stampPeriod').textContent = key ? monthLabel(key) : 'okres nieustawiony';
+
+    renderDeclaration();
+  }
+
+  function computeAnnualHealthReconciliation(year){
+    const keys = Object.keys(state.periods).filter(k => k.slice(0,4) === year).sort();
+    if(!keys.length) return null;
+    let totalRevenueInYear = 0, totalPaid = 0;
+    keys.forEach(k => {
+      const c = computeForPeriod(k);
+      totalRevenueInYear += c.sumBasis;
+      totalPaid += c.healthUsed;
+    });
+    const opening = state.settings.openingByYear[year] || 0;
+    const fullYearRevenue = opening + totalRevenueInYear;
+    const s = state.settings;
+    const tier = fullYearRevenue <= s.thresholdLow ? 'low' : (fullYearRevenue <= s.thresholdHigh ? 'mid' : 'high');
+    const monthlyRate = tier === 'low' ? s.healthLow : (tier === 'mid' ? s.healthMid : s.healthHigh);
+    const monthsCount = keys.length;
+    const dueTotal = round2(monthlyRate * monthsCount);
+    const diff = round2(dueTotal - totalPaid);
+    return { monthsCount, fullYearRevenue, tier, monthlyRate, dueTotal, totalPaid, diff };
+  }
+
+  function renderDeclaration(){
+    const key = state.activePeriod;
+    document.getElementById('declTitlePeriod').textContent = key ? monthLabel(key) : 'brak okresu';
+    const kodEl = document.getElementById('declKodTytulu');
+    const body = document.getElementById('declBody');
+    const totalEl = document.getElementById('declTotal');
+    const annualEl = document.getElementById('declAnnualHealth');
+
+    if(!key || !state.periods[key]){
+      kodEl.textContent = 'Wybierz lub utwórz okres w kroku 2.';
+      body.innerHTML = '';
+      totalEl.textContent = '0,00';
+      annualEl.textContent = '';
+      return;
+    }
+
+    const p = state.periods[key];
+    const c = computeForPeriod(key);
+    const sb = computeSocialBreakdown(p, key);
+    const kod = KOD_TYTULU[p.phase] || '—';
+    kodEl.innerHTML = `Faza: <strong>${PHASE_LABELS[p.phase]}</strong>. Kod tytułu ubezpieczenia (orientacyjnie): <strong>${kod}</strong>.
+      Deklarację ZUS DRA za ${esc(monthLabel(key))} złóż do 20. dnia następnego miesiąca, elektronicznie przez PUE/eZUS.`;
+
+    const rows = [];
+    if(p.phase !== 'start'){
+      rows.push(['Emerytalna', sb.podstawa, sb.emerytalna]);
+      rows.push(['Rentowa', sb.podstawa, sb.rentowa]);
+      rows.push(['Wypadkowa', sb.podstawa, sb.wypadkowe]);
+      if(sb.chorobowe > 0) rows.push(['Chorobowa (dobrowolna)', sb.podstawa, sb.chorobowe]);
+      if(sb.fp > 0) rows.push(['Fundusz Pracy', sb.podstawa, sb.fp]);
+    }
+    rows.push(['Zdrowotna', null, c.healthUsed]);
+
+    body.innerHTML = rows.map(r => `<tr><td>${r[0]}</td><td class="num">${r[1]==null ? '—' : fmt(r[1])+' zł'}</td><td class="num">${fmt(r[2])} zł</td></tr>`).join('');
+    totalEl.textContent = fmt(rows.reduce((s,r)=>s+r[2],0));
+
+    const year = key.slice(0,4);
+    const rec = computeAnnualHealthReconciliation(year);
+    if(!rec){
+      annualEl.textContent = 'Brak danych za ten rok.';
+    } else {
+      const tierLabel = rec.tier === 'low' ? 'I próg' : rec.tier === 'mid' ? 'II próg' : 'III próg';
+      const diffLabel = rec.diff > 0.005 ? `Dopłata: ${fmt(rec.diff)} zł (dolicz do składki za kwiecień, termin do 20 maja).`
+        : rec.diff < -0.005 ? `Nadpłata: ${fmt(-rec.diff)} zł (możesz wystąpić o zwrot wnioskiem RZS-R).`
+        : 'Brak dopłaty ani nadpłaty.';
+      const incompleteNote = rec.monthsCount < 12 ? ` Uwaga: masz w aplikacji zapisane ${rec.monthsCount} z 12 miesięcy tego roku — rozliczenie będzie ostateczne dopiero po grudniu.` : '';
+      annualEl.textContent = `Przychód za rok ${year}: ${fmt(rec.fullYearRevenue)} zł → ${tierLabel} → składka roczna wg ostatecznego przychodu: ${fmt(rec.dueTotal)} zł (${rec.monthsCount} mies. × ${fmt(rec.monthlyRate)} zł). Suma faktycznie naliczonych składek miesięcznych: ${fmt(rec.totalPaid)} zł. ${diffLabel}${incompleteNote}`;
+    }
   }
 
   function renderYearSummary(){
@@ -738,13 +884,18 @@ Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
     if(!p) return;
     document.getElementById('phaseStart').checked = p.phase === 'start';
     document.getElementById('phasePref').checked = p.phase === 'pref';
+    document.getElementById('phaseMaly').checked = p.phase === 'maly';
     document.getElementById('phaseFull').checked = p.phase === 'full';
     document.getElementById('chorobowaCheck').checked = p.chorobowa !== false;
     updatePhaseFieldVisibility(p.phase);
     document.getElementById('socialInput').value = p.social;
+    renderSocialBreakdownTable(p, key);
 
     const year = key.slice(0,4);
     document.getElementById('openingByYearInput').value = state.settings.openingByYear[year] || 0;
+    const malyInfo = state.settings.malyZusIncomeByYear[year] || { revenue:0, days:365 };
+    document.getElementById('malyRevenuePrevInput').value = malyInfo.revenue;
+    document.getElementById('malyDaysPrevInput').value = malyInfo.days;
 
     document.getElementById('invNumber').value = suggestInvoiceNumber();
     const invDateEl = document.getElementById('invDate');
@@ -814,7 +965,7 @@ Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
   });
 
   // ---------- profile fields ----------
-  const profileFieldMap = { sellerName:'name', sellerNip:'nip', sellerStreet:'street', sellerZipCity:'zipCity', sellerEmail:'email', businessStartDate:'businessStart', sellerBank:'bank', sellerBankName:'bankName', sellerBankSwift:'bankSwift' };
+  const profileFieldMap = { sellerName:'name', sellerNip:'nip', sellerPesel:'pesel', sellerStreet:'street', sellerZipCity:'zipCity', sellerEmail:'email', businessStartDate:'businessStart', sellerBank:'bank', sellerBankName:'bankName', sellerBankSwift:'bankSwift' };
   Object.keys(profileFieldMap).forEach(id => {
     document.getElementById(id).addEventListener('input', () => {
       state.profile[profileFieldMap[id]] = document.getElementById(id).value;
@@ -852,7 +1003,6 @@ Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
     if(!key){ alert('Brak wybranego okresu.'); return; }
     const period = state.periods[key];
     const c = computeForPeriod(key);
-    const phaseLabels = { start: 'ulga na start (m. 1-6/7)', pref: 'preferencyjny ZUS (m. 7-30)', full: 'pełny ZUS (od m. 31)' };
     const chorobowa = period.chorobowa ? 'z chorobowym' : 'bez chorobowego';
 
     let csv = 'Lp;Data;Nr faktury;Nabywca;Netto;VAT;Brutto;Podstawa;Stawka\n';
@@ -861,7 +1011,7 @@ Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
         .map(v => String(v).replace(/;/g,',')).join(';') + '\n';
     });
     csv += `\nOkres;${monthLabel(key)}\n`;
-    csv += `Faza działalności;${phaseLabels[period.phase]} (${chorobowa})\n`;
+    csv += `Faza działalności;${PHASE_LABELS[period.phase]} (${chorobowa})\n`;
     csv += `Suma podstawy przychodu;${fmt(c.sumBasis)}\n`;
     csv += `Odliczenie - składka społeczna;${fmt(c.social)}\n`;
     csv += `Zastosowana składka zdrowotna;${fmt(c.healthUsed)}\n`;
@@ -915,7 +1065,11 @@ Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
         const d = defaultState();
         state = {
           profile: {...d.profile, ...(data.profile||{})},
-          settings: {...d.settings, ...(data.settings||{}), openingByYear: {...((data.settings||{}).openingByYear||{})}},
+          settings: {
+            ...d.settings, ...(data.settings||{}),
+            openingByYear: {...((data.settings||{}).openingByYear||{})},
+            malyZusIncomeByYear: {...((data.settings||{}).malyZusIncomeByYear||{})}
+          },
           periods: data.periods || {},
           activePeriod: data.activePeriod || null,
           idCounter: data.idCounter || 1
@@ -939,6 +1093,7 @@ Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
   function initPage(){
     document.getElementById('sellerName').value = state.profile.name;
     document.getElementById('sellerNip').value = state.profile.nip;
+    document.getElementById('sellerPesel').value = state.profile.pesel;
     document.getElementById('sellerStreet').value = state.profile.street;
     document.getElementById('sellerZipCity').value = state.profile.zipCity;
     document.getElementById('sellerEmail').value = state.profile.email;
@@ -953,6 +1108,9 @@ Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
     document.getElementById('healthMidInput').value = state.settings.healthMid;
     document.getElementById('healthHighInput').value = state.settings.healthHigh;
     document.getElementById('tierModeSelect').value = state.settings.tierMode;
+    document.getElementById('wypadkoweRateInput').value = state.settings.wypadkoweRate;
+    document.getElementById('minWageInput').value = state.settings.minWage;
+    document.getElementById('avgWageForecastInput').value = state.settings.avgWageForecast;
 
     document.getElementById('invRyczaltRate').innerHTML = rateOptionsHtml(3);
     document.getElementById('invDate').value = new Date().toISOString().slice(0,10);
