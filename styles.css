@@ -92,22 +92,38 @@ html,body{
 .step-head h2{ font-size: 17px; margin:0; font-weight: 700; }
 .step-desc{ margin: 0 0 18px 38px; color: var(--muted); font-size: 13.5px; line-height:1.5; }
 
-/* period bar */
-.period-bar{ margin-left: 38px; display:flex; align-items:flex-end; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; }
-.period-list{ margin-left: 38px; display:flex; flex-wrap:wrap; gap: 8px; }
-.period-chip{
-  display:flex; align-items:center; gap:8px; border: 1px solid var(--line); border-radius: 999px;
-  padding: 7px 8px 7px 14px; font-size: 12.5px; background:#f8f9fc; cursor:pointer;
+/* year / month switcher */
+.year-switcher{
+  margin-left: 38px; display:flex; align-items:center; gap: 14px; margin-bottom: 14px;
 }
-.period-chip:hover{ border-color: var(--blue); }
-.period-chip.active{ background: var(--blue); border-color: var(--blue); color:#fff; }
-.period-chip.active .period-chip-sub{ color: rgba(255,255,255,.75); }
-.period-chip-sub{ color: var(--muted); }
-.period-chip button{
-  border:none; background: rgba(0,0,0,.06); color: inherit; width:18px; height:18px; border-radius:50%;
-  cursor:pointer; font-size:11px; line-height:1; display:flex; align-items:center; justify-content:center;
+.year-nav-btn{
+  width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--line); background:#fff;
+  color: var(--ink); font-size: 16px; cursor:pointer; display:flex; align-items:center; justify-content:center;
 }
-.period-chip.active button{ background: rgba(255,255,255,.2); }
+.year-nav-btn:hover{ border-color: var(--blue); color: var(--blue); }
+.year-label{ font-size: 18px; font-weight:700; min-width: 56px; text-align:center; }
+
+.month-grid{
+  margin-left: 38px; display:grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+}
+@media (max-width: 620px){ .month-grid{ grid-template-columns: repeat(3, 1fr); } }
+.month-cell{
+  position: relative; border: 1px solid var(--line); border-radius: 10px; background:#f8f9fc;
+  padding: 10px 10px 9px; cursor:pointer; display:flex; flex-direction:column; gap:3px;
+  transition: border-color .15s, background .15s;
+}
+.month-cell:hover{ border-color: var(--blue); }
+.month-cell.has-data{ background:#fff; }
+.month-cell.active{ background: var(--blue); border-color: var(--blue); color:#fff; }
+.month-cell .month-name{ font-size: 13px; font-weight:700; }
+.month-cell .month-stat{ font-size: 11px; color: var(--muted); }
+.month-cell.active .month-stat{ color: rgba(255,255,255,.75); }
+.month-cell .month-del{
+  position:absolute; top:4px; right:4px; border:none; background: rgba(0,0,0,.06); color: inherit;
+  width:18px; height:18px; border-radius:50%; cursor:pointer; font-size:11px; line-height:1;
+  display:flex; align-items:center; justify-content:center;
+}
+.month-cell.active .month-del{ background: rgba(255,255,255,.2); }
 
 /* upload */
 .dropzone{

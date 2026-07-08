@@ -3,18 +3,20 @@
   const RATES = [2, 3, 5.5, 8.5, 10, 12, 12.5, 14, 15, 17];
   const VAT_OPTIONS = [
     {v:'23', label:'23%'}, {v:'8', label:'8%'}, {v:'5', label:'5%'},
-    {v:'0', label:'0%'}, {v:'zw', label:'zw. (zwolniona)'}, {v:'np', label:'np. (poza zakresem)'}
+    {v:'0', label:'0%'}, {v:'zw', label:'zw. (освобождён от НДС)'}, {v:'np', label:'np. (вне НДС)'}
   ];
-  const MONTHS_PL = ['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec','Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'];
-  const FORMA_PLATNOSCI = { 'przelew': 6, 'gotówka': 1, 'karta': 2, 'BLIK': 7 };
-  const KOD_TYTULU = { start: '0570 (tylko zdrowotne)', pref: '0570', full: '0510', maly: '0590' };
-  const PHASE_LABELS = { start: 'ulga na start', pref: 'preferencyjny ZUS', maly: 'Mały ZUS Plus', full: 'pełny ZUS' };
+  const MONTHS_RU = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+  const MONTHS_RU_SHORT = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
+  const FORMA_PLATNOSCI = { 'перевод': 6, 'наличные': 1, 'карта': 2, 'BLIK': 7 };
+  const KOD_TYTULU = { start: '0540', pref: '0570', maly: '0590', full: '0510' };
+  const PHASE_LABELS = { start: 'льгота на старт', pref: 'льготный ZUS', maly: 'Малый ZUS Plus', full: 'полный ZUS' };
 
-  const fmt = n => (Math.round((n||0)*100)/100).toLocaleString('pl-PL', {minimumFractionDigits:2, maximumFractionDigits:2});
+  const fmt = n => (Math.round((n||0)*100)/100).toLocaleString('ru-RU', {minimumFractionDigits:2, maximumFractionDigits:2});
   const round2 = n => Math.round((n||0)*100)/100;
   const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   const currentMonthKey = () => { const d = new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); };
-  const monthLabel = key => { const [y,m] = key.split('-'); return `${MONTHS_PL[parseInt(m,10)-1]} ${y}`; };
+  const monthLabel = key => { const [y,m] = key.split('-'); return `${MONTHS_RU[parseInt(m,10)-1]} ${y}`; };
+  const formatDateRu = d => `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${d.getFullYear()}`;
 
   // ---------- state ----------
   function defaultState(){
@@ -72,11 +74,11 @@
     const textEl = document.getElementById('saveStatusText');
     if(!el) return;
     el.classList.add('saving');
-    textEl.textContent = 'zapisywanie…';
+    textEl.textContent = 'сохранение…';
     clearTimeout(saveStatusTimeout);
     saveStatusTimeout = setTimeout(() => {
       el.classList.remove('saving');
-      textEl.textContent = 'zapisano ' + new Date().toLocaleTimeString('pl-PL', {hour:'2-digit', minute:'2-digit'});
+      textEl.textContent = 'сохранено ' + new Date().toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'});
     }, 350);
   }
 
@@ -85,16 +87,62 @@
     flashSaveStatus();
   }
 
+  // Ulga na start: 6 полных календарных месяцев, если ИП открыто 1-го числа месяца;
+  // иначе первый (неполный) месяц не считается "полным" — и получается 7 месяцев.
   function computeAutoPhaseForKey(key){
     const start = state.profile.businessStart;
     if(!start) return null;
-    const [sy,sm] = start.split('-').map(Number);
+    const [sy,sm,sd] = start.split('-').map(Number);
     const [py,pm] = key.split('-').map(Number);
     const monthsElapsed = (py*12+pm) - (sy*12+sm);
     if(monthsElapsed < 0) return null;
-    if(monthsElapsed < 6) return 'start';
-    if(monthsElapsed < 30) return 'pref';
+    const ulgaMonths = (sd && sd > 1) ? 7 : 6;
+    if(monthsElapsed < ulgaMonths) return 'start';
+    if(monthsElapsed < ulgaMonths + 24) return 'pref';
     return 'full';
+  }
+
+  function addMonthsYM(y, m, n){
+    const total = (y*12 + (m-1)) + n;
+    return { y: Math.floor(total/12), m: (total%12)+1 };
+  }
+
+  function getPhaseTransitionInfo(){
+    const start = state.profile.businessStart;
+    if(!start) return null;
+    const [sy,sm,sd] = start.split('-').map(Number);
+    const ulgaMonths = (sd && sd > 1) ? 7 : 6;
+    const pref = addMonthsYM(sy, sm, ulgaMonths);
+    const full = addMonthsYM(sy, sm, ulgaMonths + 24);
+    const ulgaEnd = new Date(pref.y, pref.m-1, 0);
+    const prefStart = new Date(pref.y, pref.m-1, 1);
+    const prefEnd = new Date(full.y, full.m-1, 0);
+    const fullStart = new Date(full.y, full.m-1, 1);
+    const deadline1 = new Date(prefStart); deadline1.setDate(deadline1.getDate()+7);
+    const deadline2 = new Date(fullStart); deadline2.setDate(deadline2.getDate()+7);
+    return { ulgaMonths, ulgaEnd, prefStart, prefEnd, fullStart, deadline1, deadline2 };
+  }
+
+  function renderZusReminder(){
+    const el = document.getElementById('zusReminderBox');
+    if(!el) return;
+    if(state.settings.zusPhaseMode !== 'auto'){ el.style.display = 'none'; return; }
+    const info = getPhaseTransitionInfo();
+    if(!info){ el.style.display = 'none'; return; }
+    const today = new Date(); today.setHours(0,0,0,0);
+    const daysDiff = d => Math.round((d - today) / 86400000);
+    const items = [];
+    const d1 = daysDiff(info.prefStart);
+    if(d1 >= -30 && d1 <= 30){
+      items.push(`Льгота на старт заканчивается ${formatDateRu(info.ulgaEnd)}. С ${formatDateRu(info.prefStart)} начинается льготный ZUS — подайте в ZUS заявление об изменении регистрации (выход из старого титула страхования и новое заявление, ZWUA + ZUA той же датой) в течение 7 дней, то есть до ${formatDateRu(info.deadline1)}.`);
+    }
+    const d2 = daysDiff(info.fullStart);
+    if(d2 >= -30 && d2 <= 30){
+      items.push(`Льготный ZUS заканчивается ${formatDateRu(info.prefEnd)}. С ${formatDateRu(info.fullStart)} действует полный ZUS — подайте в ZUS заявление об изменении регистрации в течение 7 дней, то есть до ${formatDateRu(info.deadline2)}.`);
+    }
+    if(!items.length){ el.style.display = 'none'; return; }
+    el.style.display = 'block';
+    el.innerHTML = '<strong>Напоминание про перерегистрацию в ZUS:</strong><br>' + items.join('<br>');
   }
 
   function getEffectivePhase(key){
@@ -279,7 +327,7 @@
     const el = document.getElementById('buyerQuickPick');
     if(!el) return;
     const buyers = getKnownBuyers();
-    el.innerHTML = '<option value="">— wybierz, żeby wypełnić dane —</option>' +
+    el.innerHTML = '<option value="">— выберите, чтобы заполнить данные —</option>' +
       buyers.map((b,i) => `<option value="${i}">${esc(b.name)}</option>`).join('');
     el._buyers = buyers;
   }
@@ -312,7 +360,7 @@
     document.getElementById('invCurrency').value = snapshot.currency || 'PLN';
     document.getElementById('invKursField').style.display = (snapshot.currency && snapshot.currency !== 'PLN') ? 'flex' : 'none';
     document.getElementById('invKurs').value = snapshot.kurs || '';
-    document.getElementById('invPaymentForm').value = snapshot.paymentForm || 'przelew';
+    document.getElementById('invPaymentForm').value = snapshot.paymentForm || 'перевод';
     document.getElementById('invPaymentDays').value = snapshot.paymentDays || 7;
     document.getElementById('invPlace').value = snapshot.place || '';
     document.getElementById('invCashMethod').checked = !!snapshot.cashMethod;
@@ -336,7 +384,7 @@
   let draftItemIdCounter = 1;
 
   function addDraftItem(){
-    draftItems.push({ id: draftItemIdCounter++, desc: '', qty: 1, unit: 'usł.', price: 0, vat: 'zw' });
+    draftItems.push({ id: draftItemIdCounter++, desc: '', qty: 1, unit: 'усл.', price: 0, vat: 'zw' });
     renderDraftItems();
   }
   document.getElementById('addItemBtn').addEventListener('click', addDraftItem);
@@ -358,12 +406,12 @@
         <td class="num">${fmt(c.net)}</td>
         <td class="num">${fmt(c.vatAmount)}</td>
         <td class="num">${fmt(c.gross)}</td>
-        <td><button class="del-btn" data-id="${it.id}" title="Usuń pozycję">&times;</button></td>
+        <td><button class="del-btn" data-id="${it.id}" title="Удалить позицию">&times;</button></td>
       `;
       body.appendChild(tr);
     });
     if(!draftItems.length){
-      body.innerHTML = '<tr class="empty-row"><td colspan="9">Brak pozycji — dodaj przynajmniej jedną.</td></tr>';
+      body.innerHTML = '<tr class="empty-row"><td colspan="9">Нет позиций — добавьте хотя бы одну.</td></tr>';
     }
     document.getElementById('draftSumNet').textContent = fmt(sumNet);
     document.getElementById('draftSumVat').textContent = fmt(sumVat);
@@ -461,9 +509,9 @@
     platnoscXml += `\n  </Platnosc>`;
 
     return `<?xml version="1.0" encoding="UTF-8"?>
-<!-- Plik roboczy — wygenerowany pomocniczo przez kalkulator, NIE zweryfikowany z oficjalnym schematem XSD FA(3).
-     Przed realną wysyłką sprawdź go w bezpłatnej Aplikacji Podatnika KSeF (środowisko demo) na ksef.podatki.gov.pl,
-     albo po prostu przepisz dane z podglądu poniżej bezpośrednio do Aplikacji Podatnika / e-mikrofirmy. -->
+<!-- Рабочий файл — сгенерирован вспомогательно калькулятором, НЕ проверен официальной схемой XSD FA(3).
+     Перед реальной отправкой проверьте его в бесплатном Aplikacji Podatnika KSeF (демо-среда) на ksef.podatki.gov.pl,
+     либо просто перепишите данные из предпросмотра ниже напрямую в Aplikację Podatnika / e-mikrofirmę. -->
 <Faktura xmlns="http://crd.gov.pl/wzor/2025/06/25/13775/">
   <Naglowek>
     <KodFormularza kodSystemowy="FA (3)" wersjaSchemy="1-0E">FA</KodFormularza>
@@ -513,7 +561,7 @@ ${platnoscXml}
 
   // ---------- issuing an invoice ----------
   document.getElementById('issueInvoiceBtn').addEventListener('click', () => {
-    if(!draftItems.length){ alert('Dodaj przynajmniej jedną pozycję faktury.'); return; }
+    if(!draftItems.length){ alert('Добавьте хотя бы одну позицию счёта.'); return; }
 
     const seller = {
       name: document.getElementById('sellerName').value,
@@ -524,7 +572,7 @@ ${platnoscXml}
       bankName: document.getElementById('sellerBankName').value,
       bankSwift: document.getElementById('sellerBankSwift').value,
     };
-    if(!seller.name || !seller.nip){ alert('Uzupełnij dane Twojej firmy w zakładce Ustawienia (przynajmniej nazwę i NIP).'); return; }
+    if(!seller.name || !seller.nip){ alert('Заполните данные вашей фирмы во вкладке «Настройки» (хотя бы название и NIP).'); return; }
 
     const idType = document.getElementById('buyerIdType').value;
     const buyer = {
@@ -539,14 +587,14 @@ ${platnoscXml}
       jst: document.getElementById('buyerJst').checked,
       gv: document.getElementById('buyerGv').checked,
     };
-    if(!buyer.name){ alert('Podaj nazwę / imię i nazwisko nabywcy.'); return; }
-    if(idType === 'nip' && !buyer.nip){ alert('Podaj NIP nabywcy albo zmień identyfikację nabywcy.'); return; }
-    if(idType === 'vatue' && (!buyer.vatId || !buyer.country)){ alert('Podaj kod kraju i zagraniczny numer VAT nabywcy.'); return; }
+    if(!buyer.name){ alert('Укажите название / имя и фамилию покупателя.'); return; }
+    if(idType === 'nip' && !buyer.nip){ alert('Укажите NIP покупателя или измените идентификацию покупателя.'); return; }
+    if(idType === 'vatue' && (!buyer.vatId || !buyer.country)){ alert('Укажите код страны и иностранный номер VAT покупателя.'); return; }
 
     const invDateVal = document.getElementById('invDate').value || new Date().toISOString().slice(0,10);
     const currency = document.getElementById('invCurrency').value;
     const kurs = parseFloat(document.getElementById('invKurs').value) || 0;
-    if(currency !== 'PLN' && kurs <= 0){ alert('Podaj kurs waluty do przeliczenia na PLN (do ewidencji przychodów).'); return; }
+    if(currency !== 'PLN' && kurs <= 0){ alert('Укажите курс валюты для пересчёта в PLN (для учёта доходов).'); return; }
 
     const inv = {
       number: document.getElementById('invNumber').value || suggestInvoiceNumber(),
@@ -594,28 +642,28 @@ ${platnoscXml}
 
     const itemLines = inv.items.map(it => {
       const c = calcItem(it);
-      return `  • ${esc(it.desc) || '(brak opisu)'} — ${it.qty} ${esc(it.unit)} × ${fmt(it.price)} ${currency} = ${fmt(c.net)} ${currency} netto, VAT ${it.vat==='zw'?'zw.':it.vat==='np'?'np.':it.vat+'%'} (${fmt(c.vatAmount)} ${currency}) → ${fmt(c.gross)} ${currency} brutto`;
+      return `  • ${esc(it.desc) || '(без описания)'} — ${it.qty} ${esc(it.unit)} × ${fmt(it.price)} ${currency} = ${fmt(c.net)} ${currency} нетто, VAT ${it.vat==='zw'?'zw.':it.vat==='np'?'np.':it.vat+'%'} (${fmt(c.vatAmount)} ${currency}) → ${fmt(c.gross)} ${currency} брутто`;
     }).join('\n');
 
-    const buyerIdLine = idType==='nip' ? `NIP ${esc(buyer.nip)}` : idType==='vatue' ? `${esc(buyer.country)} VAT ${esc(buyer.vatId)}` : '(bez identyfikatora)';
+    const buyerIdLine = idType==='nip' ? `NIP ${esc(buyer.nip)}` : idType==='vatue' ? `${esc(buyer.country)} VAT ${esc(buyer.vatId)}` : '(без идентификатора)';
 
     const preview = document.getElementById('invoicePreview');
     preview.innerHTML = `
-      <h3>Gotowe — podgląd faktury ${esc(inv.number)}</h3>
-      <p style="margin:0 0 6px;">Dodano do ewidencji miesiąca ${esc(monthLabel(periodKey))}. Pobierz plik XML (roboczy) albo po prostu przepisz poniższe dane
-      do bezpłatnej Aplikacji Podatnika KSeF / e-mikrofirmy — to zajmie dosłownie chwilę i masz pewność zgodności ze schematem.</p>
-      <pre>Sprzedawca: ${esc(seller.name)}, NIP ${esc(seller.nip)}
-Nabywca: ${esc(buyer.name)}, ${buyerIdLine}
-Data wystawienia: ${inv.date}${inv.saleDate ? '    Data sprzedaży: '+inv.saleDate : ''}    Termin płatności: ${inv.paymentDays} dni (${inv.paymentForm})
-Numer faktury: ${inv.number}    Waluta: ${currency}${currency!=='PLN' ? ' (kurs '+kurs+')' : ''}
+      <h3>Готово — предпросмотр счёта ${esc(inv.number)}</h3>
+      <p style="margin:0 0 6px;">Добавлено в учёт доходов месяца ${esc(monthLabel(periodKey))}. Скачайте XML-файл (рабочий) или просто перепишите данные ниже
+      в бесплатное Aplikację Podatnika KSeF / e-mikrofirmę — это займёт пару секунд, и вы будете уверены в соответствии схеме.</p>
+      <pre>Продавец: ${esc(seller.name)}, NIP ${esc(seller.nip)}
+Покупатель: ${esc(buyer.name)}, ${buyerIdLine}
+Дата выставления: ${inv.date}${inv.saleDate ? '    Дата продажи: '+inv.saleDate : ''}    Срок оплаты: ${inv.paymentDays} дн. (${inv.paymentForm})
+Номер счёта: ${inv.number}    Валюта: ${currency}${currency!=='PLN' ? ' (курс '+kurs+')' : ''}
 
-Pozycje:
+Позиции:
 ${itemLines}
 
-Razem netto: ${fmt(net)} ${currency}   VAT: ${fmt(vat)} ${currency}   Brutto: ${fmt(gross)} ${currency}
-Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
+Итого нетто: ${fmt(net)} ${currency}   VAT: ${fmt(vat)} ${currency}   Брутто: ${fmt(gross)} ${currency}
+В учёт доходов: ${fmt(net*fx)} zł</pre>
       <div class="actions" style="margin:10px 0 0;">
-        <a class="action primary" style="text-decoration:none; display:inline-block;" href="${url}" download="faktura_${safeName}.xml">Pobierz XML (roboczy)</a>
+        <a class="action primary" style="text-decoration:none; display:inline-block;" href="${url}" download="faktura_${safeName}.xml">Скачать XML (рабочий)</a>
       </div>
     `;
 
@@ -633,7 +681,8 @@ Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
     state.activePeriod = periodKey;
     saveState();
     syncZusFieldsFromPeriod();
-    renderPeriodList();
+    uiYear = parseInt(periodKey.slice(0,4), 10);
+    renderYearMonthSwitcher();
     renderEvidence();
     renderYearSummary();
     renderServiceDatalist();
@@ -663,7 +712,7 @@ Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
 
   function parseKsefXml(text, filename){
     const doc = new DOMParser().parseFromString(text, 'application/xml');
-    if(doc.getElementsByTagName('parsererror').length) throw new Error('nie udało się odczytać pliku XML');
+    if(doc.getElementsByTagName('parsererror').length) throw new Error('не удалось прочитать XML-файл');
 
     const number = firstText(doc, 'P_2') || filename.replace(/\.xml$/i,'');
     const date = firstText(doc, 'P_1') || '';
@@ -720,7 +769,7 @@ Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
         if(pending === 0) finish();
       };
       reader.onerror = () => {
-        errors.push(file.name + ': błąd odczytu pliku');
+        errors.push(file.name + ': ошибка чтения файла');
         pending--;
         if(pending === 0) finish();
       };
@@ -730,12 +779,13 @@ Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
       if(touched.size){
         state.activePeriod = Array.from(touched).sort().pop();
         syncZusFieldsFromPeriod();
+        uiYear = parseInt(state.activePeriod.slice(0,4), 10);
       }
       saveState();
-      renderPeriodList();
+      renderYearMonthSwitcher();
       renderEvidence();
       renderYearSummary();
-      parseErrorsEl.textContent = errors.length ? ('Nie odczytano: ' + errors.join(' · ')) : '';
+      parseErrorsEl.textContent = errors.length ? ('Не удалось прочитать: ' + errors.join(' · ')) : '';
     }
   }
 
@@ -748,12 +798,12 @@ Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
   dropzone.addEventListener('drop', e => { if(e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); });
 
   document.getElementById('manualAddBtn').addEventListener('click', () => {
-    if(!state.activePeriod){ alert('Najpierw wybierz lub utwórz miesiąc w kroku 1.'); return; }
-    ensurePeriod(state.activePeriod).rows.push({ id: state.idCounter++, date: '', number: 'ręczny wpis', buyer: '', net: 0, vat: 0, gross: 0, basis: 0, rate: 3, source: 'manual' });
+    if(!state.activePeriod){ alert('Сначала выберите или создайте месяц в шаге 1.'); return; }
+    ensurePeriod(state.activePeriod).rows.push({ id: state.idCounter++, date: '', number: 'ручная запись', buyer: '', net: 0, vat: 0, gross: 0, basis: 0, rate: 3, source: 'manual' });
     saveState();
     renderEvidence();
     renderYearSummary();
-    renderPeriodList();
+    renderYearMonthSwitcher();
   });
 
   // ---------- evidence table ----------
@@ -762,13 +812,13 @@ Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
     const key = state.activePeriod;
     const rows = key && state.periods[key] ? state.periods[key].rows : null;
 
-    document.getElementById('evTitlePeriod').textContent = key ? monthLabel(key) : 'brak okresu';
+    document.getElementById('evTitlePeriod').textContent = key ? monthLabel(key) : 'период не выбран';
 
     tbody.innerHTML = '';
     if(rows === null){
-      tbody.innerHTML = '<tr class="empty-row"><td colspan="10">Wybierz lub utwórz okres w kroku 1.</td></tr>';
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="10">Выберите или создайте период в шаге 1.</td></tr>';
     } else if(!rows.length){
-      tbody.innerHTML = '<tr class="empty-row"><td colspan="10">Brak faktur — wgraj pliki powyżej.</td></tr>';
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="10">Нет счетов — загрузите файлы выше.</td></tr>';
     } else {
       rows.forEach((row, idx) => {
         const tr = document.createElement('tr');
@@ -782,7 +832,7 @@ Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
           <td class="num">${fmt(row.gross)}</td>
           <td class="num editable-cell"><input type="number" step="0.01" value="${row.basis}" data-id="${row.id}" data-role="basis"></td>
           <td class="rate-cell"><select data-id="${row.id}" data-role="rate">${rateOptionsHtml(row.rate)}</select></td>
-          <td><div class="row-actions">${row.source==='issued' && row.snapshot ? `<button class="dup-btn" data-id="${row.id}" title="Duplikuj — wystaw podobną fakturę w tym miesiącu">⧉</button>` : ''}<button class="del-btn" data-id="${row.id}" title="Usuń">&times;</button></div></td>
+          <td><div class="row-actions">${row.source==='issued' && row.snapshot ? `<button class="dup-btn" data-id="${row.id}" title="Дублировать — выставить похожий счёт в этом месяце">⧉</button>` : ''}<button class="del-btn" data-id="${row.id}" title="Удалить">&times;</button></div></td>
         `;
         tbody.appendChild(tr);
 
@@ -796,20 +846,20 @@ Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
       inp.addEventListener('input', () => {
         const row = state.periods[key].rows.find(r => r.id == inp.dataset.id);
         if(row) row.basis = parseFloat(inp.value) || 0;
-        saveState(); updateSummary(); renderYearSummary(); renderPeriodList();
+        saveState(); updateSummary(); renderYearSummary(); renderYearMonthSwitcher();
       });
     });
     tbody.querySelectorAll('[data-role="rate"]').forEach(sel => {
       sel.addEventListener('change', () => {
         const row = state.periods[key].rows.find(r => r.id == sel.dataset.id);
         if(row) row.rate = parseFloat(sel.value);
-        saveState(); updateSummary(); renderYearSummary(); renderPeriodList();
+        saveState(); updateSummary(); renderYearSummary(); renderYearMonthSwitcher();
       });
     });
     tbody.querySelectorAll('.del-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         state.periods[key].rows = state.periods[key].rows.filter(r => r.id != btn.dataset.id);
-        saveState(); renderEvidence(); renderYearSummary(); renderPeriodList();
+        saveState(); renderEvidence(); renderYearSummary(); renderYearMonthSwitcher();
       });
     });
     tbody.querySelectorAll('.dup-btn').forEach(btn => {
@@ -829,7 +879,7 @@ Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
     const body = document.getElementById('socialBreakdownBody');
     const overrideSelect = document.getElementById('phaseOverrideSelect');
     if(!key || !state.periods[key]){
-      hintEl.textContent = 'Wybierz lub utwórz okres w kroku 1.';
+      hintEl.textContent = 'Выберите или создайте период в шаге 1.';
       body.innerHTML = '<tr><td colspan="6">—</td></tr>';
       overrideSelect.value = '';
       return;
@@ -838,11 +888,11 @@ Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
     const phase = getEffectivePhase(key);
     const auto = state.settings.zusPhaseMode === 'auto' ? computeAutoPhaseForKey(key) : null;
     const source = p.phaseOverride
-      ? 'nadpisane ręcznie dla tego miesiąca'
+      ? 'задано вручную для этого месяца'
       : (state.settings.zusPhaseMode === 'auto'
-          ? (auto ? 'automatycznie, na podstawie daty rozpoczęcia działalności' : 'automatycznie (brak daty rozpoczęcia działalności w Ustawieniach — domyślnie ulga na start)')
-          : 'ustawione na stałe w Ustawieniach');
-    hintEl.innerHTML = `Faza w tym miesiącu: <strong>${PHASE_LABELS[phase]}</strong> — ${esc(source)}.`;
+          ? (auto ? 'автоматически, на основе даты открытия ИП' : 'автоматически (нет даты открытия ИП в Настройках — по умолчанию льгота на старт)')
+          : 'задано на постоянной основе в Настройках');
+    hintEl.innerHTML = `Фаза в этом месяце: <strong>${PHASE_LABELS[phase]}</strong> — ${esc(source)}.`;
     overrideSelect.value = p.phaseOverride || '';
 
     const b = computeSocialBreakdown(phase, key);
@@ -860,18 +910,18 @@ Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
     renderZusCard();
     updateSummary();
     renderYearSummary();
-    renderPeriodList();
+    renderYearMonthSwitcher();
   });
 
   document.getElementById('socialInput').addEventListener('input', () => {
     if(!state.activePeriod) return;
     ensurePeriod(state.activePeriod).socialOverride = parseFloat(document.getElementById('socialInput').value) || 0;
-    saveState(); updateSummary(); renderYearSummary(); renderPeriodList();
+    saveState(); updateSummary(); renderYearSummary(); renderYearMonthSwitcher();
   });
   document.getElementById('socialResetBtn').addEventListener('click', () => {
     if(!state.activePeriod) return;
     ensurePeriod(state.activePeriod).socialOverride = null;
-    saveState(); renderZusCard(); updateSummary(); renderYearSummary(); renderPeriodList();
+    saveState(); renderZusCard(); updateSummary(); renderYearSummary(); renderYearMonthSwitcher();
   });
 
   function refreshAllZusDependent(){
@@ -879,7 +929,8 @@ Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
     renderZusCard();
     updateSummary();
     renderYearSummary();
-    renderPeriodList();
+    renderYearMonthSwitcher();
+    renderZusReminder();
   }
 
   document.getElementById('zusPhaseModeSelect').addEventListener('change', () => {
@@ -906,10 +957,12 @@ Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
     const el = document.getElementById('zusModeHint');
     if(!el) return;
     const mode = state.settings.zusPhaseMode;
-    if(mode !== 'auto'){ el.textContent = `Każdy miesiąc będzie liczony w fazie: ${PHASE_LABELS[mode]}, dopóki nie zmienisz trybu tutaj.`; return; }
+    if(mode !== 'auto'){ el.textContent = `Каждый месяц будет считаться в фазе: ${PHASE_LABELS[mode]}, пока вы не смените режим здесь.`; return; }
     const start = state.profile.businessStart;
-    if(!start){ el.textContent = 'Uzupełnij „Datę rozpoczęcia działalności” w sekcji powyżej, żeby tryb automatyczny mógł liczyć fazy poprawnie — bez niej każdy miesiąc dostanie „Ulgę na start”.'; return; }
-    el.textContent = `Licząc od ${start}: miesiące 1–6 = Ulga na start, miesiące 7–30 = Preferencyjny ZUS, od miesiąca 31 = Pełny ZUS. Możesz to nadpisać dla pojedynczego miesiąca w zakładce Praca.`;
+    if(!start){ el.textContent = 'Заполните «Дату открытия ИП» в разделе выше, чтобы автоматический режим считал фазы правильно — без неё каждый месяц получит «Льготу на старт».'; return; }
+    const info = getPhaseTransitionInfo();
+    const ulgaNote = info.ulgaMonths === 7 ? ' (7 месяцев, так как ИП открыто не с 1-го числа — первый неполный месяц не считается «полным»)' : ' (6 месяцев, так как ИП открыто с 1-го числа)';
+    el.textContent = `Считая от ${start}: льгота на старт до ${formatDateRu(info.ulgaEnd)}${ulgaNote}, льготный ZUS с ${formatDateRu(info.prefStart)} до ${formatDateRu(info.prefEnd)}, полный ZUS с ${formatDateRu(info.fullStart)}. Это можно переопределить для отдельного месяца во вкладке «Работа».`;
   }
 
   const settingsFieldMap = { thresholdLowInput:'thresholdLow', thresholdHighInput:'thresholdHigh', healthLowInput:'healthLow', healthMidInput:'healthMid', healthHighInput:'healthHigh' };
@@ -924,7 +977,7 @@ Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
     refreshAllZusDependent();
   });
   document.getElementById('openingByYearInput').addEventListener('input', () => {
-    const year = state.activePeriod ? state.activePeriod.slice(0,4) : String(new Date().getFullYear());
+    const year = String(uiYear);
     state.settings.openingByYear[year] = parseFloat(document.getElementById('openingByYearInput').value) || 0;
     refreshAllZusDependent();
   });
@@ -959,7 +1012,7 @@ Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
     if(!c || !c.breakdown.length){
       rateBreakdownEl.innerHTML = '';
     } else {
-      let html = '<table><thead><tr><th>Stawka</th><th class="num">Przychód</th><th class="num">Podstawa po odliczeniach</th><th class="num">Podatek</th></tr></thead><tbody>';
+      let html = '<table><thead><tr><th>Ставка</th><th class="num">Доход</th><th class="num">База после вычетов</th><th class="num">Налог</th></tr></thead><tbody>';
       c.breakdown.forEach(b => {
         html += `<tr><td>${b.rate}%</td><td class="num">${fmt(b.groupRevenue)} zł</td><td class="num">${fmt(b.groupBase)} zł</td><td class="num">${fmt(b.groupTax)} zł</td></tr>`;
       });
@@ -970,12 +1023,12 @@ Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
     document.getElementById('calcDue').textContent = c ? c.due : 0;
 
     const s = state.settings;
-    const tierLabel = c ? (c.tier==='low' ? 'I próg (do '+fmt(s.thresholdLow)+' zł)' : c.tier==='mid' ? 'II próg ('+fmt(s.thresholdLow)+'–'+fmt(s.thresholdHigh)+' zł)' : 'III próg (powyżej '+fmt(s.thresholdHigh)+' zł)') : '';
+    const tierLabel = c ? (c.tier==='low' ? 'I порог (до '+fmt(s.thresholdLow)+' zł)' : c.tier==='mid' ? 'II порог ('+fmt(s.thresholdLow)+'–'+fmt(s.thresholdHigh)+' zł)' : 'III порог (свыше '+fmt(s.thresholdHigh)+' zł)') : '';
     document.getElementById('cumulativeHint').textContent = c
-      ? ('Przychód narastająco: ' + fmt(c.cumulative) + ' zł → ' + tierLabel + ' → składka zdrowotna: ' + fmt(c.healthUsed) + ' zł/mies.' + (s.tierMode!=='auto' ? ' (wymuszone ręcznie)' : ''))
-      : 'Wybierz okres w kroku 1, żeby zobaczyć wyliczenia.';
+      ? ('Доход нарастающим итогом: ' + fmt(c.cumulative) + ' zł → ' + tierLabel + ' → взнос на медстрахование: ' + fmt(c.healthUsed) + ' zł/мес.' + (s.tierMode!=='auto' ? ' (задано вручную)' : ''))
+      : 'Выберите период в шаге 1, чтобы увидеть расчёты.';
 
-    document.getElementById('stampPeriod').textContent = key ? monthLabel(key) : 'okres nieustawiony';
+    document.getElementById('stampPeriod').textContent = key ? monthLabel(key) : 'период не выбран';
 
     renderDeclaration();
     renderPaymentInfo();
@@ -990,13 +1043,13 @@ Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
     const key = state.activePeriod;
 
     zusBox.innerHTML = zusAcc
-      ? `<strong>Gdzie zapłacić:</strong> jednym przelewem na Twój numer rachunku składkowego (NRS): <strong>${esc(zusAcc)}</strong>. To pokrywa wszystkie składki naraz (społeczne + zdrowotną + FP). Termin: do 20. dnia następnego miesiąca.`
-      : `<strong>Gdzie zapłacić:</strong> nie masz jeszcze zapisanego numeru rachunku składkowego (NRS). Uzupełnij go w zakładce <strong>Ustawienia → Gdzie płacić ZUS i podatek</strong> — jednym przelewem na ten numer płacisz wszystkie składki naraz. Termin: do 20. dnia następnego miesiąca.`;
+      ? `<strong>Куда платить:</strong> одним переводом на ваш номер расчётного счёта (NRS): <strong>${esc(zusAcc)}</strong>. Это покрывает все взносы сразу (социальные + медицинский + Фонд труда). Срок: до 20-го числа следующего месяца.`
+      : `<strong>Куда платить:</strong> у вас ещё не сохранён номер расчётного счёта (NRS). Заполните его во вкладке <strong>Настройки → Куда платить ZUS и налог</strong> — одним переводом на этот номер платятся все взносы сразу. Срок: до 20-го числа следующего месяца.`;
 
     const due = key ? computeForPeriod(key).due : 0;
     taxBox.innerHTML = taxAcc
-      ? `<strong>Gdzie zapłacić:</strong> ${fmt(due)} zł na Twój mikrorachunek podatkowy: <strong>${esc(taxAcc)}</strong>. W tytule przelewu wpisz „PIT-28” i okres${key ? ' ('+esc(monthLabel(key))+')' : ''}. Termin: do 20. dnia miesiąca następującego po miesiącu przychodu.`
-      : `<strong>Gdzie zapłacić:</strong> nie masz jeszcze zapisanego mikrorachunku podatkowego. Uzupełnij go w zakładce <strong>Ustawienia → Gdzie płacić ZUS i podatek</strong>. Termin: do 20. dnia miesiąca następującego po miesiącu przychodu, w tytule przelewu wpisz „PIT-28”.`;
+      ? `<strong>Куда платить:</strong> ${fmt(due)} zł на ваш налоговый микросчёт: <strong>${esc(taxAcc)}</strong>. В назначении платежа укажите «PIT-28» и период${key ? ' ('+esc(monthLabel(key))+')' : ''}. Срок: до 20-го числа месяца, следующего за месяцем дохода.`
+      : `<strong>Куда платить:</strong> у вас ещё не сохранён налоговый микросчёт. Заполните его во вкладке <strong>Настройки → Куда платить ZUS и налог</strong>. Срок: до 20-го числа месяца, следующего за месяцем дохода, в назначении платежа укажите «PIT-28».`;
   }
 
   function computeAnnualHealthReconciliation(year){
@@ -1021,14 +1074,14 @@ Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
 
   function renderDeclaration(){
     const key = state.activePeriod;
-    document.getElementById('declTitlePeriod').textContent = key ? monthLabel(key) : 'brak okresu';
+    document.getElementById('declTitlePeriod').textContent = key ? monthLabel(key) : 'период не выбран';
     const kodEl = document.getElementById('declKodTytulu');
     const body = document.getElementById('declBody');
     const totalEl = document.getElementById('declTotal');
     const annualEl = document.getElementById('declAnnualHealth');
 
     if(!key || !state.periods[key]){
-      kodEl.textContent = 'Wybierz lub utwórz okres w kroku 1.';
+      kodEl.textContent = 'Выберите или создайте период в шаге 1.';
       body.innerHTML = '';
       totalEl.textContent = '0,00';
       annualEl.textContent = '';
@@ -1039,18 +1092,18 @@ Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
     const phase = c.phase;
     const sb = computeSocialBreakdown(phase, key);
     const kod = KOD_TYTULU[phase] || '—';
-    kodEl.innerHTML = `Faza: <strong>${PHASE_LABELS[phase]}</strong>. Kod tytułu ubezpieczenia (orientacyjnie): <strong>${kod}</strong>.
-      Deklarację ZUS DRA za ${esc(monthLabel(key))} złóż do 20. dnia następnego miesiąca, elektronicznie przez PUE/eZUS.`;
+    kodEl.innerHTML = `Фаза: <strong>${PHASE_LABELS[phase]}</strong>. Код титула страхования (ориентировочно): <strong>${kod}</strong>.
+      Декларацию ZUS DRA за ${esc(monthLabel(key))} подайте до 20-го числа следующего месяца, электронно через PUE/eZUS.`;
 
     const rows = [];
     if(phase !== 'start'){
-      rows.push(['Emerytalna', sb.podstawa, sb.emerytalna]);
-      rows.push(['Rentowa', sb.podstawa, sb.rentowa]);
-      rows.push(['Wypadkowa', sb.podstawa, sb.wypadkowe]);
-      if(sb.chorobowe > 0) rows.push(['Chorobowa (dobrowolna)', sb.podstawa, sb.chorobowe]);
-      if(sb.fp > 0) rows.push(['Fundusz Pracy', sb.podstawa, sb.fp]);
+      rows.push(['Пенсионный', sb.podstawa, sb.emerytalna]);
+      rows.push(['По инвалидности', sb.podstawa, sb.rentowa]);
+      rows.push(['От несчастных случаев', sb.podstawa, sb.wypadkowe]);
+      if(sb.chorobowe > 0) rows.push(['По болезни (добровольный)', sb.podstawa, sb.chorobowe]);
+      if(sb.fp > 0) rows.push(['Фонд труда', sb.podstawa, sb.fp]);
     }
-    rows.push(['Zdrowotna', null, c.healthUsed]);
+    rows.push(['Медицинское страхование', null, c.healthUsed]);
 
     body.innerHTML = rows.map(r => `<tr><td>${r[0]}</td><td class="num">${r[1]==null ? '—' : fmt(r[1])+' zł'}</td><td class="num">${fmt(r[2])} zł</td></tr>`).join('');
     totalEl.textContent = fmt(rows.reduce((s,r)=>s+r[2],0));
@@ -1058,21 +1111,21 @@ Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
     const year = key.slice(0,4);
     const rec = computeAnnualHealthReconciliation(year);
     if(!rec){
-      annualEl.textContent = 'Brak danych za ten rok.';
+      annualEl.textContent = 'Нет данных за этот год.';
     } else {
-      const tierLabel = rec.tier === 'low' ? 'I próg' : rec.tier === 'mid' ? 'II próg' : 'III próg';
-      const diffLabel = rec.diff > 0.005 ? `Dopłata: ${fmt(rec.diff)} zł (dolicz do składki za kwiecień, termin do 20 maja).`
-        : rec.diff < -0.005 ? `Nadpłata: ${fmt(-rec.diff)} zł (możesz wystąpić o zwrot wnioskiem RZS-R).`
-        : 'Brak dopłaty ani nadpłaty.';
-      const incompleteNote = rec.monthsCount < 12 ? ` Uwaga: masz w aplikacji zapisane ${rec.monthsCount} z 12 miesięcy tego roku — rozliczenie będzie ostateczne dopiero po grudniu.` : '';
-      annualEl.textContent = `Przychód za rok ${year}: ${fmt(rec.fullYearRevenue)} zł → ${tierLabel} → składka roczna wg ostatecznego przychodu: ${fmt(rec.dueTotal)} zł (${rec.monthsCount} mies. × ${fmt(rec.monthlyRate)} zł). Suma faktycznie naliczonych składek miesięcznych: ${fmt(rec.totalPaid)} zł. ${diffLabel}${incompleteNote}`;
+      const tierLabel = rec.tier === 'low' ? 'I порог' : rec.tier === 'mid' ? 'II порог' : 'III порог';
+      const diffLabel = rec.diff > 0.005 ? `Доплата: ${fmt(rec.diff)} zł (добавьте к взносу за апрель, срок до 20 мая).`
+        : rec.diff < -0.005 ? `Переплата: ${fmt(-rec.diff)} zł (можете подать заявление RZS-R на возврат).`
+        : 'Нет ни доплаты, ни переплаты.';
+      const incompleteNote = rec.monthsCount < 12 ? ` Внимание: в приложении сохранено ${rec.monthsCount} из 12 месяцев этого года — расчёт станет окончательным только после декабря.` : '';
+      annualEl.textContent = `Доход за ${year} год: ${fmt(rec.fullYearRevenue)} zł → ${tierLabel} → годовой взнос по итоговому доходу: ${fmt(rec.dueTotal)} zł (${rec.monthsCount} мес. × ${fmt(rec.monthlyRate)} zł). Сумма фактически начисленных месячных взносов: ${fmt(rec.totalPaid)} zł. ${diffLabel}${incompleteNote}`;
     }
   }
 
   function renderYearSummary(){
     const body = document.getElementById('yearSummaryBody');
     if(!state.activePeriod){
-      body.innerHTML = '<tr class="empty-row"><td colspan="4">Brak wybranego okresu.</td></tr>';
+      body.innerHTML = '<tr class="empty-row"><td colspan="4">Период не выбран.</td></tr>';
       document.getElementById('yearSumRevenue').textContent = '0,00';
       document.getElementById('yearSumTaxBase').textContent = '0,00';
       document.getElementById('yearSumTax').textContent = '0,00';
@@ -1087,11 +1140,64 @@ Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
       const bold = k === state.activePeriod ? 'font-weight:700;' : '';
       return `<tr style="${bold}"><td>${monthLabel(k)}</td><td class="num">${fmt(c.sumBasis)}</td><td class="num">${fmt(c.taxBase)}</td><td class="num">${fmt(c.due)}</td></tr>`;
     }).join('');
-    if(!keys.length) body.innerHTML = '<tr class="empty-row"><td colspan="4">Brak danych za ten rok.</td></tr>';
+    if(!keys.length) body.innerHTML = '<tr class="empty-row"><td colspan="4">Нет данных за этот год.</td></tr>';
     document.getElementById('yearSumRevenue').textContent = fmt(sumRev);
     document.getElementById('yearSumTaxBase').textContent = fmt(sumTaxBase);
     document.getElementById('yearSumTax').textContent = fmt(sumTax);
   }
+
+  // ---------- year / month switcher ----------
+  let uiYear = new Date().getFullYear();
+
+  function renderYearMonthSwitcher(){
+    document.getElementById('yearLabel').textContent = uiYear;
+    const grid = document.getElementById('monthGrid');
+    grid.innerHTML = MONTHS_RU_SHORT.map((name, idx) => {
+      const mm = String(idx+1).padStart(2,'0');
+      const key = `${uiYear}-${mm}`;
+      const exists = !!state.periods[key];
+      const active = key === state.activePeriod;
+      let stat = '';
+      if(exists){
+        const c = computeForPeriod(key);
+        stat = `<span class="month-stat">${fmt(c.sumBasis)} zł</span>`;
+      }
+      return `<div class="month-cell ${active?'active':''} ${exists?'has-data':''}" data-key="${key}">
+        <span class="month-name">${name}</span>${stat}
+        ${exists ? `<button type="button" class="month-del" data-key="${key}" title="Удалить месяц">&times;</button>` : ''}
+      </div>`;
+    }).join('');
+
+    grid.querySelectorAll('.month-cell').forEach(cell => {
+      cell.addEventListener('click', e => {
+        if(e.target.classList.contains('month-del')) return;
+        setActivePeriod(cell.dataset.key);
+      });
+    });
+    grid.querySelectorAll('.month-del').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        const k = btn.dataset.key;
+        if(confirm(`Удалить весь месяц ${monthLabel(k)} вместе с его учётом доходов? Это действие нельзя отменить.`)){
+          delete state.periods[k];
+          if(state.activePeriod === k){
+            const remaining = Object.keys(state.periods).sort();
+            state.activePeriod = remaining.length ? remaining[remaining.length-1] : null;
+            if(state.activePeriod) syncZusFieldsFromPeriod();
+          }
+          saveState();
+          renderYearMonthSwitcher();
+          renderEvidence();
+          renderYearSummary();
+        }
+      });
+    });
+
+    document.getElementById('openingByYearInput').value = state.settings.openingByYear[String(uiYear)] || 0;
+  }
+
+  document.getElementById('yearPrevBtn').addEventListener('click', () => { uiYear--; renderYearMonthSwitcher(); });
+  document.getElementById('yearNextBtn').addEventListener('click', () => { uiYear++; renderYearMonthSwitcher(); });
 
   // ---------- period switcher ----------
   function syncZusFieldsFromPeriod(){
@@ -1099,9 +1205,6 @@ Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
     const p = state.periods[key];
     if(!p) return;
     renderZusCard();
-
-    const year = key.slice(0,4);
-    document.getElementById('openingByYearInput').value = state.settings.openingByYear[year] || 0;
 
     document.getElementById('invNumber').value = suggestInvoiceNumber();
     const invDateEl = document.getElementById('invDate');
@@ -1114,60 +1217,13 @@ Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
   function setActivePeriod(key){
     ensurePeriod(key);
     state.activePeriod = key;
+    uiYear = parseInt(key.slice(0,4), 10);
     saveState();
     syncZusFieldsFromPeriod();
-    renderPeriodList();
+    renderYearMonthSwitcher();
     renderEvidence();
     renderYearSummary();
   }
-
-  function renderPeriodList(){
-    const el = document.getElementById('periodList');
-    const keys = Object.keys(state.periods).sort();
-    if(!keys.length){
-      el.innerHTML = '<span style="color:var(--muted);font-size:12.5px;">Brak zapisanych miesięcy — utwórz pierwszy powyżej.</span>';
-      return;
-    }
-    el.innerHTML = keys.map(k => {
-      const c = computeForPeriod(k);
-      const active = k === state.activePeriod;
-      return `<div class="period-chip ${active?'active':''}" data-key="${k}">
-        <span>${monthLabel(k)} <span class="period-chip-sub">— ${fmt(c.sumBasis)} zł, podatek ${c.due} zł</span></span>
-        <button type="button" data-key="${k}" data-action="del" title="Usuń miesiąc">&times;</button>
-      </div>`;
-    }).join('');
-    el.querySelectorAll('.period-chip').forEach(chip => {
-      chip.addEventListener('click', e => {
-        if(e.target.dataset.action === 'del') return;
-        setActivePeriod(chip.dataset.key);
-        document.getElementById('periodMonthInput').value = chip.dataset.key;
-      });
-    });
-    el.querySelectorAll('button[data-action="del"]').forEach(btn => {
-      btn.addEventListener('click', e => {
-        e.stopPropagation();
-        const k = btn.dataset.key;
-        if(confirm(`Usunąć cały miesiąc ${monthLabel(k)} wraz z jego ewidencją? Tej operacji nie można cofnąć.`)){
-          delete state.periods[k];
-          if(state.activePeriod === k){
-            const remaining = Object.keys(state.periods).sort();
-            state.activePeriod = remaining.length ? remaining[remaining.length-1] : null;
-            if(state.activePeriod) syncZusFieldsFromPeriod();
-          }
-          saveState();
-          renderPeriodList();
-          renderEvidence();
-          renderYearSummary();
-        }
-      });
-    });
-  }
-
-  document.getElementById('openPeriodBtn').addEventListener('click', () => {
-    const val = document.getElementById('periodMonthInput').value;
-    if(!val){ alert('Wybierz miesiąc.'); return; }
-    setActivePeriod(val);
-  });
 
   // ---------- profile fields ----------
   const profileFieldMap = { sellerName:'name', sellerNip:'nip', sellerPesel:'pesel', sellerStreet:'street', sellerZipCity:'zipCity', sellerEmail:'email', businessStartDate:'businessStart', sellerBank:'bank', sellerBankName:'bankName', sellerBankSwift:'bankSwift', sellerZusAccount:'zusAccount', sellerTaxMicroAccount:'taxMicroAccount' };
@@ -1191,57 +1247,57 @@ Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
 
   document.getElementById('exportCsvBtn').addEventListener('click', () => {
     const key = state.activePeriod;
-    if(!key){ alert('Brak wybranego okresu.'); return; }
+    if(!key){ alert('Период не выбран.'); return; }
     const period = state.periods[key];
     const c = computeForPeriod(key);
-    const chorobowa = state.settings.chorobowa ? 'z chorobowym' : 'bez chorobowego';
+    const chorobowa = state.settings.chorobowa ? 'с добровольным страхованием по болезни' : 'без страхования по болезни';
 
-    let csv = 'Lp;Data;Nr faktury;Nabywca;Netto;VAT;Brutto;Podstawa;Stawka\n';
+    let csv = '№;Дата;№ счёта;Покупатель;Нетто;VAT;Брутто;База;Ставка\n';
     period.rows.forEach((r, i) => {
       csv += [i+1, r.date, r.number, r.buyer, fmt(r.net), fmt(r.vat), fmt(r.gross), fmt(r.basis), r.rate+'%']
         .map(v => String(v).replace(/;/g,',')).join(';') + '\n';
     });
-    csv += `\nOkres;${monthLabel(key)}\n`;
-    csv += `Faza działalności;${PHASE_LABELS[c.phase]} (${chorobowa})\n`;
-    csv += `Suma podstawy przychodu;${fmt(c.sumBasis)}\n`;
-    csv += `Odliczenie - składka społeczna;${fmt(c.social)}\n`;
-    csv += `Zastosowana składka zdrowotna;${fmt(c.healthUsed)}\n`;
-    csv += `Odliczenie - 50% składki zdrowotnej;${fmt(c.halfHealth)}\n`;
-    csv += `Podstawa opodatkowania;${fmt(c.taxBase)}\n`;
-    csv += `Podatek do zapłaty;${c.due}\n`;
+    csv += `\nПериод;${monthLabel(key)}\n`;
+    csv += `Фаза ZUS;${PHASE_LABELS[c.phase]} (${chorobowa})\n`;
+    csv += `Сумма базы дохода;${fmt(c.sumBasis)}\n`;
+    csv += `Вычет - социальный взнос;${fmt(c.social)}\n`;
+    csv += `Применённый взнос на медстрахование;${fmt(c.healthUsed)}\n`;
+    csv += `Вычет - 50% взноса на медстрахование;${fmt(c.halfHealth)}\n`;
+    csv += `Налогооблагаемая база;${fmt(c.taxBase)}\n`;
+    csv += `Налог к оплате;${c.due}\n`;
 
-    downloadCsv(csv, 'ewidencja-' + key + '.csv');
+    downloadCsv(csv, 'uchet-dohodov-' + key + '.csv');
   });
 
   document.getElementById('exportYearCsvBtn').addEventListener('click', () => {
-    if(!state.activePeriod){ alert('Brak wybranego okresu.'); return; }
+    if(!state.activePeriod){ alert('Период не выбран.'); return; }
     const year = state.activePeriod.slice(0,4);
     const keys = Object.keys(state.periods).filter(k => k.slice(0,4) === year).sort();
 
-    let csv = 'Miesiac;Lp;Data;Nr faktury;Nabywca;Netto;VAT;Brutto;Podstawa;Stawka\n';
+    let csv = 'Месяц;№;Дата;№ счёта;Покупатель;Нетто;VAT;Брутто;База;Ставка\n';
     keys.forEach(k => {
       state.periods[k].rows.forEach((r,i) => {
         csv += [monthLabel(k), i+1, r.date, r.number, r.buyer, fmt(r.net), fmt(r.vat), fmt(r.gross), fmt(r.basis), r.rate+'%']
           .map(v => String(v).replace(/;/g,',')).join(';') + '\n';
       });
     });
-    csv += '\nPodsumowanie miesięczne\nMiesiac;Przychod;Podstawa opodatkowania;Podatek\n';
+    csv += '\nПомесячный итог\nМесяц;Доход;Налогооблагаемая база;Налог\n';
     let sumRev=0, sumBase=0, sumTax=0;
     keys.forEach(k => {
       const c = computeForPeriod(k);
       sumRev += c.sumBasis; sumBase += c.taxBase; sumTax += c.due;
       csv += [monthLabel(k), fmt(c.sumBasis), fmt(c.taxBase), c.due].join(';') + '\n';
     });
-    csv += ['Razem', fmt(sumRev), fmt(sumBase), sumTax].join(';') + '\n';
+    csv += ['Итого', fmt(sumRev), fmt(sumBase), sumTax].join(';') + '\n';
 
-    downloadCsv(csv, 'ewidencja-rok-' + year + '.csv');
+    downloadCsv(csv, 'uchet-dohodov-god-' + year + '.csv');
   });
 
   document.getElementById('exportJsonBtn').addEventListener('click', () => {
     const blob = new Blob([JSON.stringify(state, null, 2)], {type:'application/json'});
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'ksiegowosc-jdg-kopia.json';
+    a.download = 'uchet-ip-kopiya.json';
     a.click();
   });
 
@@ -1267,14 +1323,14 @@ Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
         };
         saveState();
         location.reload();
-      }catch(err){ parseErrorsEl.textContent = 'Nie udało się wczytać kopii JSON: ' + err.message; }
+      }catch(err){ parseErrorsEl.textContent = 'Не удалось загрузить копию JSON: ' + err.message; }
     };
     reader.readAsText(file, 'UTF-8');
     e.target.value = '';
   });
 
   document.getElementById('clearBtn').addEventListener('click', () => {
-    if(confirm('Usunąć WSZYSTKIE dane (profil, wszystkie miesiące, ustawienia)? Tej operacji nie można cofnąć.')){
+    if(confirm('Удалить ВСЕ данные (профиль, все месяцы, настройки)? Это действие нельзя отменить.')){
       localStorage.removeItem(STORAGE_KEY);
       location.reload();
     }
@@ -1310,6 +1366,7 @@ Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
     document.getElementById('malyDaysPrevInput').value = state.settings.malyZusIncome.days;
     document.getElementById('malyZusSettingsFields').style.display = state.settings.zusPhaseMode === 'maly' ? 'grid' : 'none';
     renderZusModeHint();
+    renderZusReminder();
 
     document.getElementById('invRyczaltRate').innerHTML = rateOptionsHtml(3);
     document.getElementById('invDate').value = new Date().toISOString().slice(0,10);
@@ -1322,11 +1379,11 @@ Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
     } else if(!state.activePeriod || !state.periods[state.activePeriod]){
       state.activePeriod = Object.keys(state.periods).sort().pop();
     }
-    document.getElementById('periodMonthInput').value = state.activePeriod;
+    uiYear = parseInt(state.activePeriod.slice(0,4), 10);
 
     syncZusFieldsFromPeriod();
     saveState();
-    renderPeriodList();
+    renderYearMonthSwitcher();
     renderEvidence();
     renderYearSummary();
     renderServiceDatalist();
