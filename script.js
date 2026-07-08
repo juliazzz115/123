@@ -55,7 +55,25 @@
   }
 
   let state = loadState();
-  function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+
+  let saveStatusTimeout = null;
+  function flashSaveStatus(){
+    const el = document.getElementById('saveStatus');
+    const textEl = document.getElementById('saveStatusText');
+    if(!el) return;
+    el.classList.add('saving');
+    textEl.textContent = 'zapisywanie…';
+    clearTimeout(saveStatusTimeout);
+    saveStatusTimeout = setTimeout(() => {
+      el.classList.remove('saving');
+      textEl.textContent = 'zapisano ' + new Date().toLocaleTimeString('pl-PL', {hour:'2-digit', minute:'2-digit'});
+    }, 350);
+  }
+
+  function saveState(){
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    flashSaveStatus();
+  }
 
   function computeSocialBreakdown(period, key){
     const s = state.settings;
@@ -1134,4 +1152,10 @@ Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
   }
 
   initPage();
+
+  if('serviceWorker' in navigator && location.protocol !== 'file:'){
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('service-worker.js').catch(() => {});
+    });
+  }
 })();

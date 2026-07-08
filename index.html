@@ -2,16 +2,43 @@
 <html lang="pl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Księgowość JDG — ryczałt i ewidencja przychodów KSeF</title>
+<meta name="description" content="Faktury, ewidencja przychodów, ZUS i podatek ryczałtowy dla jednoosobowej działalności gospodarczej. Działa offline, dane zapisują się lokalnie.">
+<meta name="theme-color" content="#14213d">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Księgowość JDG">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+
+<div class="topbar" id="topbar">
+  <div class="topbar-inner">
+    <span class="topbar-brand"><span class="topbar-dot"></span>Księgowość JDG</span>
+    <nav class="topbar-nav">
+      <a href="#step-profile">Firma</a>
+      <a href="#step-period">Okres</a>
+      <a href="#step-invoice">Faktura</a>
+      <a href="#step-evidence">Ewidencja</a>
+      <a href="#step-zus">ZUS</a>
+      <a href="#step-result">Wynik</a>
+      <a href="#step-declaration">Deklaracja</a>
+    </nav>
+    <span class="save-status" id="saveStatus"><span class="save-dot"></span><span id="saveStatusText">zapisano</span></span>
+  </div>
+</div>
+
 <div class="app">
 
   <div class="app-header">
     <h1>Księgowość JDG na ryczałcie</h1>
-    <p>Wystawiaj faktury, prowadź ewidencję przychodów miesiąc po miesiącu i licz ZUS oraz podatek — wszystko zapisuje się automatycznie w przeglądarce.</p>
+    <p>Wystawiaj faktury, prowadź ewidencję przychodów miesiąc po miesiącu i licz ZUS oraz podatek — wszystko zapisuje się automatycznie w tej przeglądarce i działa też offline.</p>
   </div>
 
   <div class="notice-box">
@@ -23,7 +50,7 @@
   </div>
 
   <!-- STEP 1: company profile -->
-  <div class="card">
+  <div class="card" id="step-profile">
     <div class="step-head"><span class="step-num">1</span><h2>Dane Twojej firmy</h2></div>
     <p class="step-desc">Uzupełnij raz — dane zapisują się automatycznie w tej przeglądarce. Zrób też kopię (JSON), żeby móc przenieść dane na inne urządzenie.</p>
     <div class="field-grid">
@@ -42,7 +69,7 @@
   </div>
 
   <!-- STEP 2: period switcher -->
-  <div class="card">
+  <div class="card" id="step-period">
     <div class="step-head"><span class="step-num">2</span><h2>Okres rozliczeniowy</h2></div>
     <p class="step-desc">Każdy miesiąc ma własną ewidencję, ZUS i wynik podatku — dzięki temu przychód narastająco liczy się sam. Wybierz albo utwórz miesiąc, na którym chcesz teraz pracować.</p>
     <div class="period-bar">
@@ -60,7 +87,7 @@
   </div>
 
   <!-- STEP 3: issue invoice -->
-  <div class="card">
+  <div class="card" id="step-invoice">
     <div class="step-head"><span class="step-num">3</span><h2>Wystaw fakturę</h2></div>
     <p class="step-desc">Wpisz dane nabywcy i pozycje. Faktura trafi do ewidencji miesiąca, w którym wypada data wystawienia.</p>
 
@@ -143,7 +170,7 @@
   </div>
 
   <!-- STEP 4: ewidencja -->
-  <div class="card">
+  <div class="card" id="step-evidence">
     <div class="step-head"><span class="step-num">4</span><h2>Ewidencja przychodów — <span id="evTitlePeriod">brak okresu</span></h2></div>
     <p class="step-desc">Faktury z kroku 3 trafiają tu automatycznie. Możesz też wgrać istniejące pliki XML z KSeF albo dodać wpis ręcznie. Kolumny „Podstawa” i „Stawka” zawsze możesz poprawić.</p>
 
@@ -181,7 +208,7 @@
   </div>
 
   <!-- STEP 5: ZUS -->
-  <div class="card">
+  <div class="card" id="step-zus">
     <div class="step-head"><span class="step-num">5</span><h2>ZUS za ten okres</h2></div>
     <p class="step-desc">Wybierz fazę działalności — od tego zależy, jakie składki społeczne odliczasz od przychodu. Domyślne kwoty odpowiadają stanowi prawnemu na 2026 r. (możesz je zmienić ręcznie, jeśli Twoja sytuacja jest inna).</p>
 
@@ -298,7 +325,7 @@
   </div>
 
   <!-- STEP 6: result -->
-  <div class="card">
+  <div class="card" id="step-result">
     <div class="step-head"><span class="step-num">6</span><h2>Wynik za ten okres</h2></div>
     <p class="step-desc">Podatek liczony osobno dla każdej stawki ryczałtu użytej w tabeli faktur, proporcjonalnie do udziału w przychodzie.</p>
 
@@ -344,7 +371,7 @@
   </div>
 
   <!-- STEP 7: ZUS declaration helper -->
-  <div class="card">
+  <div class="card" id="step-declaration">
     <div class="step-head"><span class="step-num">7</span><h2>Deklaracja ZUS — <span id="declTitlePeriod">brak okresu</span></h2></div>
     <p class="step-desc">Od 2022 r. deklarację ZUS DRA składa się co miesiąc (elektronicznie przez PUE/eZUS), nawet jeśli kwoty się nie zmieniają. Poniżej gotowe dane do przepisania — termin: do 20. dnia następnego miesiąca.</p>
 
