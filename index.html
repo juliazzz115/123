@@ -1,59 +1,328 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="pl">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Трекер статусов клиентов</title>
-    <link rel="stylesheet" href="styles.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Księgowość JDG — ryczałt i ewidencja przychodów KSeF</title>
+<link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="container">
-        <h1>Трекер статусов клиентов</h1>
+<div class="app">
 
-        <!-- Переключатель режимов -->
-        <div class="mode-selector">
-            <label>
-                <input type="radio" name="mode" value="mode-a" checked>
-                Режим А (Подал сам → Пометить → Проверить)
-            </label>
-            <label>
-                <input type="radio" name="mode" value="mode-b">
-                Режим Б (Оплатил → Подано → Помечено → Проверено)
-            </label>
-        </div>
+  <div class="app-header">
+    <h1>Księgowość JDG na ryczałcie</h1>
+    <p>Wystawiaj faktury, prowadź ewidencję przychodów miesiąc po miesiącu i licz ZUS oraz podatek — wszystko zapisuje się automatycznie w przeglądarce.</p>
+  </div>
 
-        <!-- Секция добавления клиента -->
-        <div class="client-input">
-            <div class="input-group">
-                <select id="clientSelect" class="client-select">
-                    <option value="">-- Выберите клиента --</option>
-                </select>
-                <button id="addClientBtn" class="btn btn-primary">Добавить в таблицу</button>
-            </div>
-            <div class="input-group">
-                <input type="text" id="newClientName" placeholder="Имя нового клиента">
-                <button id="addNewClientBtn" class="btn btn-secondary">Создать клиента</button>
-            </div>
-        </div>
+  <div class="notice-box">
+    <strong>Ważne o KSeF:</strong> ta aplikacja generuje plik XML pomocniczo, wzorowany na realnym eksporcie z Aplikacji
+    Podatnika KSeF — ale nie mam dostępu do oficjalnego schematu walidacyjnego FA(3) (kilka tysięcy linii XSD), więc nie mogę
+    zagwarantować, że każdy przypadek zostanie przyjęty bez zastrzeżeń. Realną wysyłkę do KSeF zrób przez bezpłatną
+    <strong>Aplikację Podatnika KSeF</strong> (ksef.podatki.gov.pl) albo <strong>e-mikrofirmę</strong> w e-Urzędzie Skarbowym.
+    Ta aplikacja pokaże Ci gotowy podgląd faktury i plik XML, który możesz zweryfikować lub przepisać w kilka sekund.
+  </div>
 
-        <!-- Таблица -->
-        <div class="table-container">
-            <table id="clientTable">
-                <thead>
-                    <tr id="tableHeader">
-                        <th>Имя клиента</th>
-                        <th>Подал сам</th>
-                        <th>Пометить</th>
-                        <th>Проверить</th>
-                        <th>Действия</th>
-                    </tr>
-                </thead>
-                <tbody id="tableBody">
-                </tbody>
-            </table>
-        </div>
+  <!-- STEP 1: company profile -->
+  <div class="card">
+    <div class="step-head"><span class="step-num">1</span><h2>Dane Twojej firmy</h2></div>
+    <p class="step-desc">Uzupełnij raz — dane zapisują się automatycznie w tej przeglądarce. Zrób też kopię (JSON), żeby móc przenieść dane na inne urządzenie.</p>
+    <div class="field-grid">
+      <div class="field"><label for="sellerName">Nazwa firmy / imię i nazwisko</label><input type="text" id="sellerName" placeholder="Jan Kowalski"></div>
+      <div class="field"><label for="sellerNip">NIP</label><input type="text" id="sellerNip" placeholder="1234567890"></div>
+      <div class="field"><label for="sellerStreet">Ulica i numer</label><input type="text" id="sellerStreet" placeholder="ul. Przykładowa 1/2"></div>
+      <div class="field"><label for="sellerZipCity">Kod pocztowy i miasto</label><input type="text" id="sellerZipCity" placeholder="00-000 Warszawa"></div>
+      <div class="field"><label for="sellerEmail">E-mail (opcjonalnie)</label><input type="email" id="sellerEmail"></div>
+      <div class="field"><label for="businessStartDate">Data rozpoczęcia działalności</label><input type="date" id="businessStartDate"></div>
+      <div class="field"><label for="sellerBank">Nr konta — IBAN (opcjonalnie)</label><input type="text" id="sellerBank" placeholder="PL00 0000 0000 0000 0000 0000 0000"></div>
+      <div class="field"><label for="sellerBankName">Nazwa banku (opcjonalnie)</label><input type="text" id="sellerBankName" placeholder="PKO BANK POLSKI S.A."></div>
+      <div class="field"><label for="sellerBankSwift">SWIFT/BIC (opcjonalnie)</label><input type="text" id="sellerBankSwift" placeholder="BPKOPLPW"></div>
+    </div>
+    <div class="hint-box" id="phaseSuggestHint" style="margin-left:0;"></div>
+  </div>
+
+  <!-- STEP 2: period switcher -->
+  <div class="card">
+    <div class="step-head"><span class="step-num">2</span><h2>Okres rozliczeniowy</h2></div>
+    <p class="step-desc">Każdy miesiąc ma własną ewidencję, ZUS i wynik podatku — dzięki temu przychód narastająco liczy się sam. Wybierz albo utwórz miesiąc, na którym chcesz teraz pracować.</p>
+    <div class="period-bar">
+      <div class="field" style="max-width:200px;">
+        <label for="periodMonthInput">Miesiąc</label>
+        <input type="month" id="periodMonthInput">
+      </div>
+      <button class="action primary" id="openPeriodBtn">Otwórz / utwórz miesiąc</button>
+      <div class="field" style="max-width:220px;">
+        <label for="openingByYearInput">Przychód sprzed startu aplikacji (dla tego roku)</label>
+        <input type="number" id="openingByYearInput" value="0" step="0.01" min="0">
+      </div>
+    </div>
+    <div class="period-list" id="periodList"></div>
+  </div>
+
+  <!-- STEP 3: issue invoice -->
+  <div class="card">
+    <div class="step-head"><span class="step-num">3</span><h2>Wystaw fakturę</h2></div>
+    <p class="step-desc">Wpisz dane nabywcy i pozycje. Faktura trafi do ewidencji miesiąca, w którym wypada data wystawienia.</p>
+
+    <div class="field-grid">
+      <div class="field"><label for="invNumber">Numer faktury</label><input type="text" id="invNumber"></div>
+      <div class="field"><label for="invDate">Data wystawienia</label><input type="date" id="invDate"></div>
+      <div class="field"><label for="invSaleDate">Data sprzedaży (jeśli inna niż wystawienia)</label><input type="date" id="invSaleDate"></div>
+      <div class="field"><label for="invPlace">Miejsce wystawienia</label><input type="text" id="invPlace" placeholder="Warszawa"></div>
+      <div class="field"><label for="invPaymentDays">Termin płatności (dni)</label><input type="number" id="invPaymentDays" value="7" min="0"></div>
+      <div class="field"><label for="invPaymentForm">Forma płatności</label>
+        <select id="invPaymentForm"><option value="przelew">przelew</option><option value="gotówka">gotówka</option><option value="karta">karta</option><option value="BLIK">BLIK</option></select>
+      </div>
+      <div class="field"><label for="invCurrency">Waluta</label>
+        <select id="invCurrency"><option>PLN</option><option>EUR</option><option>USD</option><option>GBP</option></select>
+      </div>
+      <div class="field" id="invKursField" style="display:none;">
+        <label for="invKurs">Kurs waluty (do PLN, wg NBP)</label>
+        <input type="number" id="invKurs" step="0.0001" min="0">
+        <span class="unit-note">potrzebny do wpisania przychodu w PLN do ewidencji</span>
+      </div>
     </div>
 
-    <script src="script.js"></script>
+    <p class="step-desc" style="margin-left:0; margin-top:16px;"><strong>Nabywca</strong></p>
+    <div class="field-grid">
+      <div class="field">
+        <label for="buyerIdType">Identyfikacja nabywcy</label>
+        <select id="buyerIdType">
+          <option value="nip">NIP (Polska)</option>
+          <option value="vatue">Zagraniczny nr VAT (UE)</option>
+          <option value="none">Brak identyfikatora (osoba prywatna)</option>
+        </select>
+      </div>
+      <div class="field"><label for="buyerName">Nazwa / imię i nazwisko nabywcy</label><input type="text" id="buyerName"></div>
+      <div class="field" id="buyerNipField"><label for="buyerNip">NIP nabywcy</label><input type="text" id="buyerNip"></div>
+      <div class="field" id="buyerVatUeField" style="display:none;"><label for="buyerVatId">Zagraniczny numer VAT</label><input type="text" id="buyerVatId" placeholder="28968115"></div>
+      <div class="field" id="buyerCountryField" style="display:none;"><label for="buyerCountry">Kod kraju (VAT-UE)</label><input type="text" id="buyerCountry" placeholder="MT" maxlength="2"></div>
+      <div class="field"><label for="buyerStreet">Ulica i numer</label><input type="text" id="buyerStreet"></div>
+      <div class="field"><label for="buyerZipCity">Kod pocztowy i miasto</label><input type="text" id="buyerZipCity"></div>
+      <div class="field"><label for="buyerAddressCountry">Kraj adresu nabywcy</label><input type="text" id="buyerAddressCountry" value="PL" maxlength="2"></div>
+      <div class="field"><label for="invRyczaltRate">Stawka ryczałtu dla tej faktury</label>
+        <select id="invRyczaltRate"></select>
+      </div>
+      <div class="field" id="buyerJstField" style="display:none;">
+        <label style="flex-direction:row; align-items:center; gap:8px; display:flex;"><input type="checkbox" id="buyerJst" style="width:auto;"> Nabywca to JST</label>
+      </div>
+      <div class="field" id="buyerGvField" style="display:none;">
+        <label style="flex-direction:row; align-items:center; gap:8px; display:flex;"><input type="checkbox" id="buyerGv" style="width:auto;"> Nabywca to grupa VAT</label>
+      </div>
+    </div>
+
+    <p class="step-desc" style="margin-left:0; margin-top:18px;"><strong>Adnotacje (rzadkie przypadki — zwykle zostaw odznaczone)</strong></p>
+    <div class="field-grid">
+      <div class="field"><label style="flex-direction:row; align-items:center; gap:8px; display:flex;"><input type="checkbox" id="invCashMethod" style="width:auto;"> Metoda kasowa</label></div>
+      <div class="field"><label style="flex-direction:row; align-items:center; gap:8px; display:flex;"><input type="checkbox" id="invSelfBilling" style="width:auto;"> Samofakturowanie</label></div>
+      <div class="field"><label style="flex-direction:row; align-items:center; gap:8px; display:flex;"><input type="checkbox" id="invReverseCharge" style="width:auto;"> Odwrotne obciążenie</label></div>
+      <div class="field"><label style="flex-direction:row; align-items:center; gap:8px; display:flex;"><input type="checkbox" id="invSplitPayment" style="width:auto;"> Mechanizm podzielonej płatności</label></div>
+    </div>
+
+    <p class="step-desc" style="margin-left:0; margin-top:18px;"><strong>Pozycje faktury</strong></p>
+    <div class="table-wrap" style="margin-left:0;">
+      <table>
+        <thead>
+          <tr><th>Opis</th><th class="num">Ilość</th><th>J.m.</th><th class="num">Cena netto</th><th>VAT</th><th class="num">Netto</th><th class="num">VAT</th><th class="num">Brutto</th><th></th></tr>
+        </thead>
+        <tbody id="draftItemsBody"></tbody>
+        <tfoot>
+          <tr><td colspan="5">Razem</td><td class="num" id="draftSumNet">0,00</td><td class="num" id="draftSumVat">0,00</td><td class="num" id="draftSumGross">0,00</td><td></td></tr>
+        </tfoot>
+      </table>
+    </div>
+    <div class="actions" style="margin-left:0;">
+      <button class="action" id="addItemBtn">+ dodaj pozycję</button>
+    </div>
+
+    <div class="actions" style="margin-left:0; margin-top:18px;">
+      <button class="action primary" id="issueInvoiceBtn">Wystaw fakturę</button>
+    </div>
+
+    <div id="invoicePreview"></div>
+  </div>
+
+  <!-- STEP 4: ewidencja -->
+  <div class="card">
+    <div class="step-head"><span class="step-num">4</span><h2>Ewidencja przychodów — <span id="evTitlePeriod">brak okresu</span></h2></div>
+    <p class="step-desc">Faktury z kroku 3 trafiają tu automatycznie. Możesz też wgrać istniejące pliki XML z KSeF albo dodać wpis ręcznie. Kolumny „Podstawa” i „Stawka” zawsze możesz poprawić.</p>
+
+    <div class="dropzone" id="dropzone">
+      <p><strong>Przeciągnij pliki XML tutaj</strong> albo kliknij, aby wybrać (można wiele naraz)</p>
+      <input type="file" id="fileInput" accept=".xml,text/xml,application/xml" multiple>
+    </div>
+    <div class="manual-add"><button class="link-btn" id="manualAddBtn">+ dodaj wpis ręcznie</button></div>
+    <div id="parseErrors"></div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Lp.</th><th>Data</th><th>Nr faktury</th><th>Nabywca</th>
+            <th class="num">Netto</th><th class="num">VAT</th><th class="num">Brutto</th>
+            <th class="num">Podstawa (PLN)</th><th>Stawka</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="tbody">
+          <tr class="empty-row"><td colspan="10">Wybierz lub utwórz okres w kroku 2.</td></tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="4">Razem</td>
+            <td class="num" id="sumNet">0,00</td>
+            <td class="num" id="sumVat">0,00</td>
+            <td class="num" id="sumGross">0,00</td>
+            <td class="num" id="sumBasis">0,00</td>
+            <td colspan="2"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+  <!-- STEP 5: ZUS -->
+  <div class="card">
+    <div class="step-head"><span class="step-num">5</span><h2>ZUS za ten okres</h2></div>
+    <p class="step-desc">Wybierz fazę działalności — od tego zależy, jakie składki społeczne odliczasz od przychodu. Domyślne kwoty odpowiadają stanowi prawnemu na 2026 r. (możesz je zmienić ręcznie, jeśli Twoja sytuacja jest inna).</p>
+
+    <div class="phase-options">
+      <label class="phase-option">
+        <input type="radio" name="phase" id="phaseStart" value="start" checked>
+        <span><span class="t">Ulga na start (miesiące 1–6/7)</span><span class="d">Przez pierwsze 6 pełnych miesięcy kalendarzowych nie płacisz składek społecznych — tylko składkę zdrowotną.</span></span>
+      </label>
+      <label class="phase-option">
+        <input type="radio" name="phase" id="phasePref" value="pref">
+        <span><span class="t">Preferencyjny ZUS (kolejne 24 miesiące)</span><span class="d">Składka społeczna liczona od 30% minimalnego wynagrodzenia, plus składka zdrowotna.</span></span>
+      </label>
+      <label class="phase-option">
+        <input type="radio" name="phase" id="phaseFull" value="full">
+        <span><span class="t">Pełny ZUS (po 30 miesiącach)</span><span class="d">Standardowa składka społeczna (60% prognozowanego przeciętnego wynagrodzenia), plus składka zdrowotna.</span></span>
+      </label>
+    </div>
+
+    <div class="field-grid">
+      <div class="field" id="chorobowaField" style="display:none;">
+        <label style="flex-direction:row; align-items:center; gap:8px; display:flex;">
+          <input type="checkbox" id="chorobowaCheck" checked style="width:auto;">
+          Dobrowolne ubezpieczenie chorobowe
+        </label>
+        <span class="unit-note">wpływa na domyślną kwotę składki społecznej poniżej</span>
+      </div>
+      <div class="field" id="socialField" style="display:none;">
+        <label for="socialInput">Składka społeczna za ten okres</label>
+        <input type="number" id="socialInput" value="456.19" step="0.01" min="0">
+        <span class="unit-note">zł — odliczana w 100% od przychodu</span>
+      </div>
+    </div>
+
+    <div class="field-grid" style="margin-top:14px;">
+      <div class="field">
+        <label for="tierModeSelect">Składka zdrowotna do zastosowania</label>
+        <select id="tierModeSelect">
+          <option value="auto">Automatycznie — wg przychodu narastająco</option>
+          <option value="low">Wymuś: I próg (do 60 000 zł)</option>
+          <option value="mid">Wymuś: II próg (60 000–300 000 zł)</option>
+          <option value="high">Wymuś: III próg (powyżej 300 000 zł)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="thresholdLowInput">Próg I / II (przychód roczny)</label>
+        <input type="number" id="thresholdLowInput" value="60000" step="100" min="0">
+        <span class="unit-note">zł</span>
+      </div>
+      <div class="field">
+        <label for="thresholdHighInput">Próg II / III (przychód roczny)</label>
+        <input type="number" id="thresholdHighInput" value="300000" step="100" min="0">
+        <span class="unit-note">zł</span>
+      </div>
+      <div class="field">
+        <label for="healthLowInput">Składka zdrowotna — I próg (do 60 000 zł)</label>
+        <input type="number" id="healthLowInput" value="498.35" step="0.01" min="0">
+        <span class="unit-note">zł/mies. — 9% z 60% przeciętnego wynagrodzenia</span>
+      </div>
+      <div class="field">
+        <label for="healthMidInput">Składka zdrowotna — II próg (60 000–300 000 zł)</label>
+        <input type="number" id="healthMidInput" value="830.58" step="0.01" min="0">
+        <span class="unit-note">zł/mies. — 9% ze 100% przeciętnego wynagrodzenia</span>
+      </div>
+      <div class="field">
+        <label for="healthHighInput">Składka zdrowotna — III próg (powyżej 300 000 zł)</label>
+        <input type="number" id="healthHighInput" value="1495.04" step="0.01" min="0">
+        <span class="unit-note">zł/mies. — 9% ze 180% przeciętnego wynagrodzenia</span>
+      </div>
+    </div>
+
+    <div class="hint-box" id="cumulativeHint"></div>
+  </div>
+
+  <!-- STEP 6: result -->
+  <div class="card">
+    <div class="step-head"><span class="step-num">6</span><h2>Wynik za ten okres</h2></div>
+    <p class="step-desc">Podatek liczony osobno dla każdej stawki ryczałtu użytej w tabeli faktur, proporcjonalnie do udziału w przychodzie.</p>
+
+    <ul class="result-list">
+      <li><span>Liczba faktur</span><span class="v" id="calcCount">0</span></li>
+      <li><span>Suma podstawy przychodu</span><span class="v" id="calcBasis">0,00 zł</span></li>
+      <li class="neg"><span>Odliczenie — składka społeczna</span><span class="v">&minus; <span id="calcSocial">0,00</span> zł</span></li>
+      <li class="neg"><span>Odliczenie — 50% składki zdrowotnej (<span id="calcHealthUsed">0,00</span> zł)</span><span class="v">&minus; <span id="calcHalfZus">0,00</span> zł</span></li>
+      <li><span><strong>Podstawa opodatkowania</strong></span><span class="v" id="calcTaxBase">0,00 zł</span></li>
+    </ul>
+
+    <div class="rate-breakdown" id="rateBreakdown"></div>
+
+    <div class="total-box">
+      <div>
+        <div class="label">Podatek do zapłaty</div>
+        <div class="period" id="stampPeriod">okres nieustawiony</div>
+      </div>
+      <div class="amount"><span id="calcDue">0</span> zł</div>
+    </div>
+
+    <div class="actions">
+      <button class="action primary" id="exportCsvBtn">Eksportuj CSV (ten miesiąc)</button>
+      <button class="action" id="exportYearCsvBtn">Eksportuj CSV (cały rok)</button>
+      <button class="action" id="exportJsonBtn">Zapisz kopię (JSON)</button>
+      <button class="action" id="importJsonBtn">Wczytaj kopię (JSON)</button>
+      <button class="action danger" id="clearBtn">Wyczyść wszystko</button>
+      <input type="file" id="importInput" accept="application/json">
+    </div>
+
+    <p class="step-desc" style="margin-left:0; margin-top:22px;"><strong>Podsumowanie roczne</strong></p>
+    <div class="table-wrap" style="margin-left:0;">
+      <table id="yearSummaryTable">
+        <thead>
+          <tr><th>Miesiąc</th><th class="num">Przychód</th><th class="num">Podstawa opodatkowania</th><th class="num">Podatek</th></tr>
+        </thead>
+        <tbody id="yearSummaryBody"></tbody>
+        <tfoot>
+          <tr><td>Razem</td><td class="num" id="yearSumRevenue">0,00</td><td class="num" id="yearSumTaxBase">0,00</td><td class="num" id="yearSumTax">0,00</td></tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+  <footer class="note">
+    <strong>Czego ta aplikacja NIE robi:</strong> nie wysyła faktur do KSeF (to wymaga Twojego logowania — Profil Zaufany,
+    podpis kwalifikowany lub token — przez oficjalną Aplikację Podatnika KSeF albo e-mikrofirmę) i nie generuje deklaracji
+    PIT-28 ani ZUS DRA (te składa się przez e-Urząd Skarbowy / PUE-eZUS, zwykle raz w roku / raz w miesiącu, z własnym
+    uwierzytelnieniem). Ten kalkulator liczy za Ciebie kwoty i pilnuje ewidencji, żebyś miała gotowe dane do wpisania
+    w tamtych systemach.<br><br>
+    <strong>Wzór podatku:</strong> Podstawa opodatkowania = suma podstawy przychodu &minus; składka społeczna (100%, tylko w fazie preferencyjnej
+    lub pełnego ZUS) &minus; 50% zapłaconej składki zdrowotnej. Jeśli w tabeli używasz kilku stawek ryczałtu, odliczenia są dzielone
+    proporcjonalnie do udziału każdej stawki w przychodzie, a podatek liczony osobno dla każdej z nich i sumowany. Przychód narastająco
+    do progu składki zdrowotnej liczy się teraz automatycznie z sumy wszystkich miesięcy danego roku zapisanych w aplikacji, plus
+    ewentualny przychód sprzed rozpoczęcia korzystania z niej (krok 2).<br><br>
+    <strong>Domyślne kwoty (stan prawny 2026 r.):</strong> składka zdrowotna ryczałtu — 498,35 zł / 830,58 zł / 1495,04 zł (progi
+    60 000 zł i 300 000 zł, 9% od odpowiednio 60%/100%/180% przeciętnego wynagrodzenia z IV kw. 2025 = 9228,64 zł); ulga na start —
+    6 pełnych miesięcy kalendarzowych bez składek społecznych; preferencyjny ZUS — 24 miesiące, podstawa 30% minimalnego wynagrodzenia
+    (1441,80 zł), składka ok. 456,19 zł (z chorobowym) lub 420,86 zł (bez); pełny ZUS — podstawa 60% prognozowanego przeciętnego
+    wynagrodzenia (5652,60 zł), składka ok. 1926,76 zł (z chorobowym) lub 1788,29 zł (bez). Twoja sytuacja może się różnić —
+    wszystkie kwoty można zmienić ręcznie. Wyliczenie ma charakter pomocniczy i nie zastępuje weryfikacji księgowej.<br><br>
+    <strong>Zapis danych:</strong> wszystko zapisuje się automatycznie w pamięci przeglądarki (localStorage) na tym urządzeniu.
+    Rób regularnie kopię JSON (krok 6), żeby nie stracić danych przy czyszczeniu przeglądarki i móc pracować na innym urządzeniu.
+  </footer>
+
+</div>
+
+<script src="script.js"></script>
 </body>
 </html>
