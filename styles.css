@@ -27,13 +27,28 @@ html,body{
 }
 .topbar-brand{ font-weight:700; font-size: 14px; display:flex; align-items:center; gap:8px; white-space:nowrap; }
 .topbar-dot{ width:8px; height:8px; border-radius:50%; background: var(--blue); flex-shrink:0; }
-.topbar-nav{ display:flex; gap: 4px; overflow-x:auto; flex: 1; scrollbar-width: none; }
-.topbar-nav::-webkit-scrollbar{ display:none; }
-.topbar-nav a{
-  color: rgba(255,255,255,.72); text-decoration:none; font-size: 12.5px; font-weight:600;
-  padding: 7px 10px; border-radius: 7px; white-space:nowrap; transition: background .15s, color .15s;
+
+.topbar-tabs{ display:flex; gap: 4px; flex: 1; }
+.tab-btn{
+  background:none; border:none; color: rgba(255,255,255,.66); cursor:pointer;
+  font-size: 13px; font-weight:700; padding: 7px 14px; border-radius: 7px;
+  transition: background .15s, color .15s; font-family: inherit;
 }
-.topbar-nav a:hover{ background: rgba(255,255,255,.08); color:#fff; }
+.tab-btn:hover{ background: rgba(255,255,255,.08); color:#fff; }
+.tab-btn.active{ background: var(--blue); color:#fff; }
+
+.topbar-subnav{
+  max-width: 940px; margin: 0 auto; padding: 0 20px 8px; display:flex; gap: 2px;
+  overflow-x:auto; scrollbar-width: none;
+}
+.topbar-subnav::-webkit-scrollbar{ display:none; }
+.topbar-subnav a{
+  color: rgba(255,255,255,.6); text-decoration:none; font-size: 12px; font-weight:600;
+  padding: 5px 9px; border-radius: 6px; white-space:nowrap; transition: background .15s, color .15s;
+}
+.topbar-subnav a:hover{ background: rgba(255,255,255,.08); color:#fff; }
+.topbar-subnav.hidden{ display:none; }
+
 .save-status{
   display:flex; align-items:center; gap:6px; font-size: 11.5px; color: rgba(255,255,255,.6);
   white-space:nowrap; flex-shrink:0;
@@ -137,6 +152,12 @@ td[contenteditable]:focus{ outline: 2px solid var(--blue); outline-offset: -2px;
   border-radius:6px; cursor:pointer; font-size:13px; line-height:1;
 }
 .del-btn:hover{ background: var(--red); color:#fff; }
+.dup-btn{
+  background:none; border:1px solid var(--blue); color: var(--blue); width:22px; height:22px;
+  border-radius:6px; cursor:pointer; font-size:12px; line-height:1; margin-right:4px;
+}
+.dup-btn:hover{ background: var(--blue); color:#fff; }
+.row-actions{ display:flex; gap:4px; align-items:center; }
 .empty-row td{ text-align:center; color: var(--muted); font-style: italic; padding: 24px; }
 tfoot td{ font-weight:700; background:#f4f6fb; border-top: 2px solid var(--line); }
 #yearSummaryTable{ min-width: 480px; }
@@ -199,6 +220,14 @@ button.action.primary:hover{ background: var(--blue-dark); }
 button.action.danger{ color: var(--red); border-color: var(--red); }
 button.action.danger:hover{ background: var(--red); color:#fff; }
 #importInput{ display:none; }
+
+.tab-panel[hidden]{ display:none; }
+.settings-card .step-desc,
+.settings-card .field-grid,
+.settings-card .hint-box,
+.settings-card .actions{ margin-left:0; }
+.settings-card .step-head{ margin-bottom:4px; }
+.settings-card .field .unit-note a{ color: var(--blue); }
 
 footer.note{
   margin: 24px 0 0; font-size: 12px; color: var(--muted); line-height:1.6;

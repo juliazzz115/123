@@ -19,7 +19,7 @@
   // ---------- state ----------
   function defaultState(){
     return {
-      profile: { name:'', nip:'', pesel:'', street:'', zipCity:'', email:'', businessStart:'', bank:'', bankName:'', bankSwift:'' },
+      profile: { name:'', nip:'', pesel:'', street:'', zipCity:'', email:'', businessStart:'', bank:'', bankName:'', bankSwift:'', zusAccount:'', taxMicroAccount:'' },
       settings: {
         thresholdLow: 60000, thresholdHigh: 300000,
         healthLow: 498.35, healthMid: 830.58, healthHigh: 1495.04,
@@ -178,6 +178,18 @@
     return { sumNet, sumVat, sumGross, sumBasis, social, healthUsed, halfHealth, totalDeduction, taxBase, tier, cumulative, breakdown, due };
   }
 
+  // ---------- tabs ----------
+  function switchTab(tab){
+    const isPraca = tab === 'praca';
+    document.getElementById('tabPraca').hidden = !isPraca;
+    document.getElementById('tabUstawienia').hidden = isPraca;
+    document.getElementById('topbarSubnav').classList.toggle('hidden', !isPraca);
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tab));
+  }
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+  });
+
   // ---------- generic helpers ----------
   function rateOptionsHtml(selected){
     return RATES.map(r => `<option value="${r}" ${r===selected?'selected':''}>${r}%</option>`).join('');
@@ -203,6 +215,95 @@
     }
   }
 
+  // ---------- reuse: known buyers & services from past issued invoices ----------
+  function getKnownBuyers(){
+    const map = new Map();
+    Object.keys(state.periods).sort().forEach(k => {
+      state.periods[k].rows.forEach(r => {
+        if(r.source === 'issued' && r.snapshot && r.snapshot.buyer && r.snapshot.buyer.name){
+          const b = r.snapshot.buyer;
+          const key = (b.idType === 'nip' ? 'nip:'+b.nip : b.idType === 'vatue' ? 'vat:'+b.country+b.vatId : 'name:'+b.name).toLowerCase();
+          map.set(key, b);
+        }
+      });
+    });
+    return Array.from(map.values());
+  }
+
+  function getKnownServices(){
+    const map = new Map();
+    Object.keys(state.periods).sort().forEach(k => {
+      state.periods[k].rows.forEach(r => {
+        if(r.source === 'issued' && r.snapshot && r.snapshot.items){
+          r.snapshot.items.forEach(it => { if(it.desc) map.set(it.desc.toLowerCase(), it); });
+        }
+      });
+    });
+    return Array.from(map.values());
+  }
+
+  function renderServiceDatalist(){
+    const el = document.getElementById('serviceList');
+    if(!el) return;
+    el.innerHTML = getKnownServices().map(s => `<option value="${esc(s.desc)}"></option>`).join('');
+  }
+
+  function renderBuyerQuickPick(){
+    const el = document.getElementById('buyerQuickPick');
+    if(!el) return;
+    const buyers = getKnownBuyers();
+    el.innerHTML = '<option value="">— wybierz, żeby wypełnić dane —</option>' +
+      buyers.map((b,i) => `<option value="${i}">${esc(b.name)}</option>`).join('');
+    el._buyers = buyers;
+  }
+
+  function fillBuyerFields(b){
+    document.getElementById('buyerIdType').value = b.idType || 'nip';
+    document.getElementById('buyerName').value = b.name || '';
+    document.getElementById('buyerNip').value = b.nip || '';
+    document.getElementById('buyerVatId').value = b.vatId || '';
+    document.getElementById('buyerCountry').value = b.country || '';
+    document.getElementById('buyerStreet').value = b.street || '';
+    document.getElementById('buyerZipCity').value = b.zipCity || '';
+    document.getElementById('buyerAddressCountry').value = b.addressCountry || 'PL';
+    document.getElementById('buyerJst').checked = !!b.jst;
+    document.getElementById('buyerGv').checked = !!b.gv;
+    updateBuyerIdFieldsVisibility();
+  }
+
+  document.getElementById('buyerQuickPick').addEventListener('change', () => {
+    const el = document.getElementById('buyerQuickPick');
+    const idx = el.value;
+    if(idx === '' || !el._buyers || !el._buyers[idx]) return;
+    fillBuyerFields(el._buyers[idx]);
+  });
+
+  function loadDraftFromSnapshot(snapshot){
+    fillBuyerFields(snapshot.buyer || {});
+
+    document.getElementById('invRyczaltRate').value = snapshot.rate;
+    document.getElementById('invCurrency').value = snapshot.currency || 'PLN';
+    document.getElementById('invKursField').style.display = (snapshot.currency && snapshot.currency !== 'PLN') ? 'flex' : 'none';
+    document.getElementById('invKurs').value = snapshot.kurs || '';
+    document.getElementById('invPaymentForm').value = snapshot.paymentForm || 'przelew';
+    document.getElementById('invPaymentDays').value = snapshot.paymentDays || 7;
+    document.getElementById('invPlace').value = snapshot.place || '';
+    document.getElementById('invCashMethod').checked = !!snapshot.cashMethod;
+    document.getElementById('invSelfBilling').checked = !!snapshot.selfBilling;
+    document.getElementById('invReverseCharge').checked = !!snapshot.reverseCharge;
+    document.getElementById('invSplitPayment').checked = !!snapshot.splitPayment;
+    document.getElementById('invDate').value = new Date().toISOString().slice(0,10);
+    document.getElementById('invSaleDate').value = '';
+    document.getElementById('invNumber').value = suggestInvoiceNumber();
+
+    draftItems = (snapshot.items || []).map(it => ({...it, id: draftItemIdCounter++}));
+    if(!draftItems.length) addDraftItem(); else renderDraftItems();
+
+    switchTab('praca');
+    const el = document.getElementById('step-invoice');
+    if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
+  }
+
   // ---------- draft invoice items ----------
   let draftItems = [];
   let draftItemIdCounter = 1;
@@ -222,7 +323,7 @@
       sumNet += c.net; sumVat += c.vatAmount; sumGross += c.gross;
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td><input type="text" data-id="${it.id}" data-f="desc" value="${esc(it.desc)}" style="width:160px;border:1px solid var(--line);border-radius:6px;padding:5px 6px;font-size:12.5px;"></td>
+        <td><input type="text" data-id="${it.id}" data-f="desc" value="${esc(it.desc)}" list="serviceList" style="width:160px;border:1px solid var(--line);border-radius:6px;padding:5px 6px;font-size:12.5px;"></td>
         <td class="num"><input type="number" data-id="${it.id}" data-f="qty" value="${it.qty}" step="0.01" style="width:60px;text-align:right;border:1px solid var(--line);border-radius:6px;padding:5px 6px;font-size:12.5px;"></td>
         <td><input type="text" data-id="${it.id}" data-f="unit" value="${esc(it.unit)}" style="width:60px;border:1px solid var(--line);border-radius:6px;padding:5px 6px;font-size:12.5px;"></td>
         <td class="num"><input type="number" data-id="${it.id}" data-f="price" value="${it.price}" step="0.01" style="width:80px;text-align:right;border:1px solid var(--line);border-radius:6px;padding:5px 6px;font-size:12.5px;"></td>
@@ -252,6 +353,14 @@
     });
     body.querySelectorAll('.del-btn').forEach(btn => {
       btn.addEventListener('click', () => { draftItems = draftItems.filter(x => x.id != btn.dataset.id); renderDraftItems(); });
+    });
+    body.querySelectorAll('input[data-f="desc"]').forEach(el => {
+      el.addEventListener('change', () => {
+        const known = getKnownServices().find(s => s.desc.toLowerCase() === el.value.toLowerCase());
+        if(!known) return;
+        const it = draftItems.find(x => x.id == el.dataset.id);
+        if(it){ it.unit = known.unit; it.price = known.price; it.vat = known.vat; renderDraftItems(); }
+      });
     });
   }
 
@@ -388,7 +497,7 @@ ${platnoscXml}
       bankName: document.getElementById('sellerBankName').value,
       bankSwift: document.getElementById('sellerBankSwift').value,
     };
-    if(!seller.name || !seller.nip){ alert('Uzupełnij dane Twojej firmy w kroku 1 (przynajmniej nazwę i NIP).'); return; }
+    if(!seller.name || !seller.nip){ alert('Uzupełnij dane Twojej firmy w zakładce Ustawienia (przynajmniej nazwę i NIP).'); return; }
 
     const idType = document.getElementById('buyerIdType').value;
     const buyer = {
@@ -441,7 +550,14 @@ ${platnoscXml}
       buyer: buyer.name,
       net: round2(net*fx), vat: round2(vat*fx), gross: round2(gross*fx),
       basis: round2(net*fx), rate, source: 'issued',
-      origCurrency: currency, fxRate: currency==='PLN' ? null : kurs
+      origCurrency: currency, fxRate: currency==='PLN' ? null : kurs,
+      snapshot: {
+        buyer: {...buyer},
+        items: inv.items.map(it => ({...it})),
+        rate, currency, kurs,
+        paymentForm: inv.paymentForm, paymentDays: inv.paymentDays, place: inv.place,
+        cashMethod: inv.cashMethod, selfBilling: inv.selfBilling, reverseCharge: inv.reverseCharge, splitPayment: inv.splitPayment
+      }
     });
 
     const xml = buildInvoiceXml(seller, buyer, inv, totals);
@@ -493,6 +609,8 @@ Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
     renderPeriodList();
     renderEvidence();
     renderYearSummary();
+    renderServiceDatalist();
+    renderBuyerQuickPick();
     addDraftItem();
   });
 
@@ -603,7 +721,7 @@ Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
   dropzone.addEventListener('drop', e => { if(e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); });
 
   document.getElementById('manualAddBtn').addEventListener('click', () => {
-    if(!state.activePeriod){ alert('Najpierw wybierz lub utwórz miesiąc w kroku 2.'); return; }
+    if(!state.activePeriod){ alert('Najpierw wybierz lub utwórz miesiąc w kroku 1.'); return; }
     ensurePeriod(state.activePeriod).rows.push({ id: state.idCounter++, date: '', number: 'ręczny wpis', buyer: '', net: 0, vat: 0, gross: 0, basis: 0, rate: 3, source: 'manual' });
     saveState();
     renderEvidence();
@@ -621,7 +739,7 @@ Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
 
     tbody.innerHTML = '';
     if(rows === null){
-      tbody.innerHTML = '<tr class="empty-row"><td colspan="10">Wybierz lub utwórz okres w kroku 2.</td></tr>';
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="10">Wybierz lub utwórz okres w kroku 1.</td></tr>';
     } else if(!rows.length){
       tbody.innerHTML = '<tr class="empty-row"><td colspan="10">Brak faktur — wgraj pliki powyżej.</td></tr>';
     } else {
@@ -637,7 +755,7 @@ Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
           <td class="num">${fmt(row.gross)}</td>
           <td class="num editable-cell"><input type="number" step="0.01" value="${row.basis}" data-id="${row.id}" data-role="basis"></td>
           <td class="rate-cell"><select data-id="${row.id}" data-role="rate">${rateOptionsHtml(row.rate)}</select></td>
-          <td><button class="del-btn" data-id="${row.id}" title="Usuń">&times;</button></td>
+          <td><div class="row-actions">${row.source==='issued' && row.snapshot ? `<button class="dup-btn" data-id="${row.id}" title="Duplikuj — wystaw podobną fakturę w tym miesiącu">⧉</button>` : ''}<button class="del-btn" data-id="${row.id}" title="Usuń">&times;</button></div></td>
         `;
         tbody.appendChild(tr);
 
@@ -665,6 +783,12 @@ Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
       btn.addEventListener('click', () => {
         state.periods[key].rows = state.periods[key].rows.filter(r => r.id != btn.dataset.id);
         saveState(); renderEvidence(); renderYearSummary(); renderPeriodList();
+      });
+    });
+    tbody.querySelectorAll('.dup-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const row = state.periods[key].rows.find(r => r.id == btn.dataset.id);
+        if(row && row.snapshot) loadDraftFromSnapshot(row.snapshot);
       });
     });
 
@@ -794,11 +918,30 @@ Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
     const tierLabel = c ? (c.tier==='low' ? 'I próg (do '+fmt(s.thresholdLow)+' zł)' : c.tier==='mid' ? 'II próg ('+fmt(s.thresholdLow)+'–'+fmt(s.thresholdHigh)+' zł)' : 'III próg (powyżej '+fmt(s.thresholdHigh)+' zł)') : '';
     document.getElementById('cumulativeHint').textContent = c
       ? ('Przychód narastająco: ' + fmt(c.cumulative) + ' zł → ' + tierLabel + ' → składka zdrowotna: ' + fmt(c.healthUsed) + ' zł/mies.' + (s.tierMode!=='auto' ? ' (wymuszone ręcznie)' : ''))
-      : 'Wybierz okres w kroku 2, żeby zobaczyć wyliczenia.';
+      : 'Wybierz okres w kroku 1, żeby zobaczyć wyliczenia.';
 
     document.getElementById('stampPeriod').textContent = key ? monthLabel(key) : 'okres nieustawiony';
 
     renderDeclaration();
+    renderPaymentInfo();
+  }
+
+  function renderPaymentInfo(){
+    const zusBox = document.getElementById('payZusBox');
+    const taxBox = document.getElementById('payTaxBox');
+    if(!zusBox || !taxBox) return;
+    const zusAcc = (state.profile.zusAccount || '').trim();
+    const taxAcc = (state.profile.taxMicroAccount || '').trim();
+    const key = state.activePeriod;
+
+    zusBox.innerHTML = zusAcc
+      ? `<strong>Gdzie zapłacić:</strong> jednym przelewem na Twój numer rachunku składkowego (NRS): <strong>${esc(zusAcc)}</strong>. To pokrywa wszystkie składki naraz (społeczne + zdrowotną + FP). Termin: do 20. dnia następnego miesiąca.`
+      : `<strong>Gdzie zapłacić:</strong> nie masz jeszcze zapisanego numeru rachunku składkowego (NRS). Uzupełnij go w zakładce <strong>Ustawienia → Gdzie płacić ZUS i podatek</strong> — jednym przelewem na ten numer płacisz wszystkie składki naraz. Termin: do 20. dnia następnego miesiąca.`;
+
+    const due = key ? computeForPeriod(key).due : 0;
+    taxBox.innerHTML = taxAcc
+      ? `<strong>Gdzie zapłacić:</strong> ${fmt(due)} zł na Twój mikrorachunek podatkowy: <strong>${esc(taxAcc)}</strong>. W tytule przelewu wpisz „PIT-28” i okres${key ? ' ('+esc(monthLabel(key))+')' : ''}. Termin: do 20. dnia miesiąca następującego po miesiącu przychodu.`
+      : `<strong>Gdzie zapłacić:</strong> nie masz jeszcze zapisanego mikrorachunku podatkowego. Uzupełnij go w zakładce <strong>Ustawienia → Gdzie płacić ZUS i podatek</strong>. Termin: do 20. dnia miesiąca następującego po miesiącu przychodu, w tytule przelewu wpisz „PIT-28”.`;
   }
 
   function computeAnnualHealthReconciliation(year){
@@ -830,7 +973,7 @@ Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
     const annualEl = document.getElementById('declAnnualHealth');
 
     if(!key || !state.periods[key]){
-      kodEl.textContent = 'Wybierz lub utwórz okres w kroku 2.';
+      kodEl.textContent = 'Wybierz lub utwórz okres w kroku 1.';
       body.innerHTML = '';
       totalEl.textContent = '0,00';
       annualEl.textContent = '';
@@ -983,12 +1126,13 @@ Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
   });
 
   // ---------- profile fields ----------
-  const profileFieldMap = { sellerName:'name', sellerNip:'nip', sellerPesel:'pesel', sellerStreet:'street', sellerZipCity:'zipCity', sellerEmail:'email', businessStartDate:'businessStart', sellerBank:'bank', sellerBankName:'bankName', sellerBankSwift:'bankSwift' };
+  const profileFieldMap = { sellerName:'name', sellerNip:'nip', sellerPesel:'pesel', sellerStreet:'street', sellerZipCity:'zipCity', sellerEmail:'email', businessStartDate:'businessStart', sellerBank:'bank', sellerBankName:'bankName', sellerBankSwift:'bankSwift', sellerZusAccount:'zusAccount', sellerTaxMicroAccount:'taxMicroAccount' };
   Object.keys(profileFieldMap).forEach(id => {
     document.getElementById(id).addEventListener('input', () => {
       state.profile[profileFieldMap[id]] = document.getElementById(id).value;
       saveState();
       if(id === 'businessStartDate') updatePhaseSuggestHint();
+      if(id === 'sellerZusAccount' || id === 'sellerTaxMicroAccount') renderPaymentInfo();
     });
   });
 
@@ -1004,7 +1148,7 @@ Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
     if(monthsElapsed < 6) suggestion = '„Ulga na start”';
     else if(monthsElapsed < 30) suggestion = '„Preferencyjny ZUS”';
     else suggestion = '„Pełny ZUS”';
-    el.textContent = `Wg daty rozpoczęcia działalności, dla okresu ${monthLabel(state.activePeriod)} (miesiąc nr ${monthsElapsed+1} działalności) sugerowana faza to: ${suggestion}. To tylko podpowiedź — wybór fazy w kroku 5 zawsze możesz ustawić ręcznie.`;
+    el.textContent = `Wg daty rozpoczęcia działalności, dla okresu ${monthLabel(state.activePeriod)} (miesiąc nr ${monthsElapsed+1} działalności) sugerowana faza to: ${suggestion}. To tylko podpowiedź — wybór fazy w kroku 4 zawsze możesz ustawić ręcznie.`;
   }
 
   // ---------- export / import / clear ----------
@@ -1119,6 +1263,8 @@ Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
     document.getElementById('sellerBank').value = state.profile.bank;
     document.getElementById('sellerBankName').value = state.profile.bankName;
     document.getElementById('sellerBankSwift').value = state.profile.bankSwift;
+    document.getElementById('sellerZusAccount').value = state.profile.zusAccount;
+    document.getElementById('sellerTaxMicroAccount').value = state.profile.taxMicroAccount;
 
     document.getElementById('thresholdLowInput').value = state.settings.thresholdLow;
     document.getElementById('thresholdHighInput').value = state.settings.thresholdHigh;
@@ -1148,6 +1294,9 @@ Do ewidencji przychodów: ${fmt(net*fx)} zł</pre>
     renderPeriodList();
     renderEvidence();
     renderYearSummary();
+    renderServiceDatalist();
+    renderBuyerQuickPick();
+    renderPaymentInfo();
     addDraftItem();
   }
 

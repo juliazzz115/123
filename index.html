@@ -21,16 +21,19 @@
 <div class="topbar" id="topbar">
   <div class="topbar-inner">
     <span class="topbar-brand"><span class="topbar-dot"></span>Księgowość JDG</span>
-    <nav class="topbar-nav">
-      <a href="#step-profile">Firma</a>
-      <a href="#step-period">Okres</a>
-      <a href="#step-invoice">Faktura</a>
-      <a href="#step-evidence">Ewidencja</a>
-      <a href="#step-zus">ZUS</a>
-      <a href="#step-result">Wynik</a>
-      <a href="#step-declaration">Deklaracja</a>
+    <nav class="topbar-tabs" id="topbarTabs">
+      <button type="button" class="tab-btn active" data-tab="praca">Praca</button>
+      <button type="button" class="tab-btn" data-tab="ustawienia">Ustawienia</button>
     </nav>
     <span class="save-status" id="saveStatus"><span class="save-dot"></span><span id="saveStatusText">zapisano</span></span>
+  </div>
+  <div class="topbar-subnav" id="topbarSubnav">
+    <a href="#step-period">Okres</a>
+    <a href="#step-invoice">Faktura</a>
+    <a href="#step-evidence">Ewidencja</a>
+    <a href="#step-zus">ZUS</a>
+    <a href="#step-result">Wynik</a>
+    <a href="#step-declaration">Deklaracja</a>
   </div>
 </div>
 
@@ -41,6 +44,9 @@
     <p>Wystawiaj faktury, prowadź ewidencję przychodów miesiąc po miesiącu i licz ZUS oraz podatek — wszystko zapisuje się automatycznie w tej przeglądarce i działa też offline.</p>
   </div>
 
+  <!-- ============ TAB: PRACA ============ -->
+  <div class="tab-panel" id="tabPraca">
+
   <div class="notice-box">
     <strong>Ważne o KSeF:</strong> ta aplikacja generuje plik XML pomocniczo, wzorowany na realnym eksporcie z Aplikacji
     Podatnika KSeF — ale nie mam dostępu do oficjalnego schematu walidacyjnego FA(3) (kilka tysięcy linii XSD), więc nie mogę
@@ -49,28 +55,9 @@
     Ta aplikacja pokaże Ci gotowy podgląd faktury i plik XML, który możesz zweryfikować lub przepisać w kilka sekund.
   </div>
 
-  <!-- STEP 1: company profile -->
-  <div class="card" id="step-profile">
-    <div class="step-head"><span class="step-num">1</span><h2>Dane Twojej firmy</h2></div>
-    <p class="step-desc">Uzupełnij raz — dane zapisują się automatycznie w tej przeglądarce. Zrób też kopię (JSON), żeby móc przenieść dane na inne urządzenie.</p>
-    <div class="field-grid">
-      <div class="field"><label for="sellerName">Nazwa firmy / imię i nazwisko</label><input type="text" id="sellerName" placeholder="Jan Kowalski"></div>
-      <div class="field"><label for="sellerNip">NIP</label><input type="text" id="sellerNip" placeholder="1234567890"></div>
-      <div class="field"><label for="sellerPesel">PESEL (do ZUS)</label><input type="text" id="sellerPesel" placeholder="00000000000" maxlength="11"></div>
-      <div class="field"><label for="sellerStreet">Ulica i numer</label><input type="text" id="sellerStreet" placeholder="ul. Przykładowa 1/2"></div>
-      <div class="field"><label for="sellerZipCity">Kod pocztowy i miasto</label><input type="text" id="sellerZipCity" placeholder="00-000 Warszawa"></div>
-      <div class="field"><label for="sellerEmail">E-mail (opcjonalnie)</label><input type="email" id="sellerEmail"></div>
-      <div class="field"><label for="businessStartDate">Data rozpoczęcia działalności</label><input type="date" id="businessStartDate"></div>
-      <div class="field"><label for="sellerBank">Nr konta — IBAN (opcjonalnie)</label><input type="text" id="sellerBank" placeholder="PL00 0000 0000 0000 0000 0000 0000"></div>
-      <div class="field"><label for="sellerBankName">Nazwa banku (opcjonalnie)</label><input type="text" id="sellerBankName" placeholder="PKO BANK POLSKI S.A."></div>
-      <div class="field"><label for="sellerBankSwift">SWIFT/BIC (opcjonalnie)</label><input type="text" id="sellerBankSwift" placeholder="BPKOPLPW"></div>
-    </div>
-    <div class="hint-box" id="phaseSuggestHint" style="margin-left:0;"></div>
-  </div>
-
-  <!-- STEP 2: period switcher -->
+  <!-- STEP 1: period switcher -->
   <div class="card" id="step-period">
-    <div class="step-head"><span class="step-num">2</span><h2>Okres rozliczeniowy</h2></div>
+    <div class="step-head"><span class="step-num">1</span><h2>Okres rozliczeniowy</h2></div>
     <p class="step-desc">Każdy miesiąc ma własną ewidencję, ZUS i wynik podatku — dzięki temu przychód narastająco liczy się sam. Wybierz albo utwórz miesiąc, na którym chcesz teraz pracować.</p>
     <div class="period-bar">
       <div class="field" style="max-width:200px;">
@@ -86,10 +73,10 @@
     <div class="period-list" id="periodList"></div>
   </div>
 
-  <!-- STEP 3: issue invoice -->
+  <!-- STEP 2: issue invoice -->
   <div class="card" id="step-invoice">
-    <div class="step-head"><span class="step-num">3</span><h2>Wystaw fakturę</h2></div>
-    <p class="step-desc">Wpisz dane nabywcy i pozycje. Faktura trafi do ewidencji miesiąca, w którym wypada data wystawienia.</p>
+    <div class="step-head"><span class="step-num">2</span><h2>Wystaw fakturę</h2></div>
+    <p class="step-desc">Wpisz dane nabywcy i pozycje. Faktura trafi do ewidencji miesiąca, w którym wypada data wystawienia. Nabywcę i usługi z poprzednich faktur możesz wybrać z listy poniżej.</p>
 
     <div class="field-grid">
       <div class="field"><label for="invNumber">Numer faktury</label><input type="text" id="invNumber"></div>
@@ -112,6 +99,10 @@
 
     <p class="step-desc" style="margin-left:0; margin-top:16px;"><strong>Nabywca</strong></p>
     <div class="field-grid">
+      <div class="field">
+        <label for="buyerQuickPick">Nabywca z poprzednich faktur</label>
+        <select id="buyerQuickPick"><option value="">— wybierz, żeby wypełnić dane —</option></select>
+      </div>
       <div class="field">
         <label for="buyerIdType">Identyfikacja nabywcy</label>
         <select id="buyerIdType">
@@ -146,7 +137,7 @@
       <div class="field"><label style="flex-direction:row; align-items:center; gap:8px; display:flex;"><input type="checkbox" id="invSplitPayment" style="width:auto;"> Mechanizm podzielonej płatności</label></div>
     </div>
 
-    <p class="step-desc" style="margin-left:0; margin-top:18px;"><strong>Pozycje faktury</strong></p>
+    <p class="step-desc" style="margin-left:0; margin-top:18px;"><strong>Pozycje faktury</strong> — opis pozycji podpowiada się z wcześniejszych faktur (zacznij pisać albo wybierz z listy)</p>
     <div class="table-wrap" style="margin-left:0;">
       <table>
         <thead>
@@ -158,6 +149,7 @@
         </tfoot>
       </table>
     </div>
+    <datalist id="serviceList"></datalist>
     <div class="actions" style="margin-left:0;">
       <button class="action" id="addItemBtn">+ dodaj pozycję</button>
     </div>
@@ -169,10 +161,10 @@
     <div id="invoicePreview"></div>
   </div>
 
-  <!-- STEP 4: ewidencja -->
+  <!-- STEP 3: ewidencja -->
   <div class="card" id="step-evidence">
-    <div class="step-head"><span class="step-num">4</span><h2>Ewidencja przychodów — <span id="evTitlePeriod">brak okresu</span></h2></div>
-    <p class="step-desc">Faktury z kroku 3 trafiają tu automatycznie. Możesz też wgrać istniejące pliki XML z KSeF albo dodać wpis ręcznie. Kolumny „Podstawa” i „Stawka” zawsze możesz poprawić.</p>
+    <div class="step-head"><span class="step-num">3</span><h2>Ewidencja przychodów — <span id="evTitlePeriod">brak okresu</span></h2></div>
+    <p class="step-desc">Faktury z kroku 2 trafiają tu automatycznie. Możesz też wgrać istniejące pliki XML z KSeF albo dodać wpis ręcznie. Kolumny „Podstawa” i „Stawka” zawsze możesz poprawić. Przycisk „Duplikuj” obok wystawionej faktury wypełnia formularz w kroku 2 tymi samymi danymi — wygodne do wystawienia podobnej faktury w kolejnym miesiącu.</p>
 
     <div class="dropzone" id="dropzone">
       <p><strong>Przeciągnij pliki XML tutaj</strong> albo kliknij, aby wybrać (można wiele naraz)</p>
@@ -191,7 +183,7 @@
           </tr>
         </thead>
         <tbody id="tbody">
-          <tr class="empty-row"><td colspan="10">Wybierz lub utwórz okres w kroku 2.</td></tr>
+          <tr class="empty-row"><td colspan="10">Wybierz lub utwórz okres w kroku 1.</td></tr>
         </tbody>
         <tfoot>
           <tr>
@@ -207,10 +199,10 @@
     </div>
   </div>
 
-  <!-- STEP 5: ZUS -->
+  <!-- STEP 4: ZUS -->
   <div class="card" id="step-zus">
-    <div class="step-head"><span class="step-num">5</span><h2>ZUS za ten okres</h2></div>
-    <p class="step-desc">Wybierz fazę działalności — od tego zależy, jakie składki społeczne odliczasz od przychodu. Domyślne kwoty odpowiadają stanowi prawnemu na 2026 r. (możesz je zmienić ręcznie, jeśli Twoja sytuacja jest inna).</p>
+    <div class="step-head"><span class="step-num">4</span><h2>ZUS za ten okres</h2></div>
+    <p class="step-desc">Wybierz fazę działalności — od tego zależy, jakie składki społeczne odliczasz od przychodu. Stawki i progi prawne edytujesz w zakładce <strong>Ustawienia</strong>.</p>
 
     <div class="phase-options">
       <label class="phase-option">
@@ -253,24 +245,6 @@
       </div>
     </div>
 
-    <div class="field-grid" style="margin-top:14px;">
-      <div class="field">
-        <label for="wypadkoweRateInput">Stopa składki wypadkowej</label>
-        <input type="number" id="wypadkoweRateInput" value="1.67" step="0.01" min="0">
-        <span class="unit-note">% — 1,67% domyślnie dla ≤9 ubezpieczonych, zależy od PKD</span>
-      </div>
-      <div class="field">
-        <label for="minWageInput">Minimalne wynagrodzenie (rok bieżący)</label>
-        <input type="number" id="minWageInput" value="4806" step="0.01" min="0">
-        <span class="unit-note">zł — podstawa dla ZUS preferencyjnego i progu Funduszu Pracy</span>
-      </div>
-      <div class="field">
-        <label for="avgWageForecastInput">Prognozowane przeciętne wynagrodzenie (rok bieżący)</label>
-        <input type="number" id="avgWageForecastInput" value="9421" step="0.01" min="0">
-        <span class="unit-note">zł — podstawa dla pełnego ZUS i górnego limitu Małego ZUS Plus</span>
-      </div>
-    </div>
-
     <p class="step-desc" style="margin-left:0; margin-top:16px;"><strong>Rozkład składki społecznej (wyliczenie automatyczne, informacyjnie)</strong></p>
     <div class="table-wrap" style="margin-left:0;" id="socialBreakdownWrap">
       <table>
@@ -285,6 +259,142 @@
         <input type="number" id="socialInput" value="0" step="0.01" min="0">
         <span class="unit-note">zł — domyślnie suma z tabeli powyżej, możesz nadpisać ręcznie</span>
       </div>
+    </div>
+
+    <div class="hint-box" id="cumulativeHint"></div>
+  </div>
+
+  <!-- STEP 5: result -->
+  <div class="card" id="step-result">
+    <div class="step-head"><span class="step-num">5</span><h2>Wynik za ten okres</h2></div>
+    <p class="step-desc">Podatek liczony osobno dla każdej stawki ryczałtu użytej w tabeli faktur, proporcjonalnie do udziału w przychodzie.</p>
+
+    <ul class="result-list">
+      <li><span>Liczba faktur</span><span class="v" id="calcCount">0</span></li>
+      <li><span>Suma podstawy przychodu</span><span class="v" id="calcBasis">0,00 zł</span></li>
+      <li class="neg"><span>Odliczenie — składka społeczna</span><span class="v">&minus; <span id="calcSocial">0,00</span> zł</span></li>
+      <li class="neg"><span>Odliczenie — 50% składki zdrowotnej (<span id="calcHealthUsed">0,00</span> zł)</span><span class="v">&minus; <span id="calcHalfZus">0,00</span> zł</span></li>
+      <li><span><strong>Podstawa opodatkowania</strong></span><span class="v" id="calcTaxBase">0,00 zł</span></li>
+    </ul>
+
+    <div class="rate-breakdown" id="rateBreakdown"></div>
+
+    <div class="total-box">
+      <div>
+        <div class="label">Podatek do zapłaty</div>
+        <div class="period" id="stampPeriod">okres nieustawiony</div>
+      </div>
+      <div class="amount"><span id="calcDue">0</span> zł</div>
+    </div>
+
+    <div class="hint-box" id="payTaxBox" style="margin-left:0; margin-top:14px;"></div>
+
+    <div class="actions" style="margin-left:0;">
+      <button class="action primary" id="exportCsvBtn">Eksportuj CSV (ten miesiąc)</button>
+      <button class="action" id="exportYearCsvBtn">Eksportuj CSV (cały rok)</button>
+    </div>
+
+    <p class="step-desc" style="margin-left:0; margin-top:22px;"><strong>Podsumowanie roczne</strong></p>
+    <div class="table-wrap" style="margin-left:0;">
+      <table id="yearSummaryTable">
+        <thead>
+          <tr><th>Miesiąc</th><th class="num">Przychód</th><th class="num">Podstawa opodatkowania</th><th class="num">Podatek</th></tr>
+        </thead>
+        <tbody id="yearSummaryBody"></tbody>
+        <tfoot>
+          <tr><td>Razem</td><td class="num" id="yearSumRevenue">0,00</td><td class="num" id="yearSumTaxBase">0,00</td><td class="num" id="yearSumTax">0,00</td></tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+  <!-- STEP 6: ZUS declaration helper -->
+  <div class="card" id="step-declaration">
+    <div class="step-head"><span class="step-num">6</span><h2>Deklaracja ZUS — <span id="declTitlePeriod">brak okresu</span></h2></div>
+    <p class="step-desc">Od 2022 r. deklarację ZUS DRA składa się co miesiąc (elektronicznie przez PUE/eZUS), nawet jeśli kwoty się nie zmieniają. Poniżej gotowe dane do przepisania — termin: do 20. dnia następnego miesiąca.</p>
+
+    <div class="hint-box" id="declKodTytulu" style="margin-left:0;"></div>
+
+    <div class="table-wrap" style="margin-left:0; margin-top:14px;">
+      <table>
+        <thead><tr><th>Składka</th><th class="num">Podstawa wymiaru</th><th class="num">Kwota</th></tr></thead>
+        <tbody id="declBody"></tbody>
+        <tfoot><tr><td>Razem do zapłaty</td><td></td><td class="num" id="declTotal">0,00</td></tr></tfoot>
+      </table>
+    </div>
+
+    <div class="hint-box" id="payZusBox" style="margin-left:0; margin-top:14px;"></div>
+
+    <p class="step-desc" style="margin-left:0; margin-top:22px;"><strong>Roczne rozliczenie składki zdrowotnej (ZUS DRA, termin do 20 maja)</strong></p>
+    <div class="hint-box" id="declAnnualHealth" style="margin-left:0;"></div>
+
+    <div class="notice-box" style="margin-top:16px;">
+      <strong>Ważne:</strong> to wyliczenie pomocnicze, nie oficjalny formularz — nie mam dostępu do bieżących ustawień Twojego
+      konta w ZUS (aktualny kod tytułu ubezpieczenia, zwolnienia, dotychczas wykorzystane miesiące ulg, limit 36/60 miesięcy dla
+      Małego ZUS Plus, limit 24 miesięcy dla ZUS preferencyjnego, faktyczna stopa procentowa składki wypadkowej wg Twojego PKD).
+      Deklarację złóż i zweryfikuj przez <strong>PUE/eZUS</strong> (www.zus.pl) — tam też zobaczysz dokładne, oficjalne kwoty.
+    </div>
+  </div>
+
+  </div>
+  <!-- ============ /TAB: PRACA ============ -->
+
+  <!-- ============ TAB: USTAWIENIA ============ -->
+  <div class="tab-panel" id="tabUstawienia" hidden>
+
+  <div class="hint-box" style="margin-left:0; margin-bottom:20px;">
+    <strong>Jak działa zapis danych:</strong> wszystko, co tu wpiszesz, zapisuje się automatycznie w pamięci tej przeglądarki
+    (localStorage) na tym urządzeniu — wypełnij dane raz, przy kolejnej wizycie pod tym samym adresem będą już gotowe.
+    Zapis działa niezależnie od internetu. Żeby mieć dostęp do tych samych danych na innym urządzeniu albo mieć kopię
+    zapasową, rób regularnie „Kopię JSON” w sekcji poniżej.
+  </div>
+
+  <!-- Company profile -->
+  <div class="card settings-card" id="step-profile">
+    <div class="step-head"><h2>Dane Twojej firmy</h2></div>
+    <p class="step-desc" style="margin-left:0;">Uzupełnij raz — będą używane na każdej fakturze i w deklaracji ZUS.</p>
+    <div class="field-grid">
+      <div class="field"><label for="sellerName">Nazwa firmy / imię i nazwisko</label><input type="text" id="sellerName" placeholder="Jan Kowalski"></div>
+      <div class="field"><label for="sellerNip">NIP</label><input type="text" id="sellerNip" placeholder="1234567890"></div>
+      <div class="field"><label for="sellerPesel">PESEL (do ZUS)</label><input type="text" id="sellerPesel" placeholder="00000000000" maxlength="11"></div>
+      <div class="field"><label for="sellerStreet">Ulica i numer</label><input type="text" id="sellerStreet" placeholder="ul. Przykładowa 1/2"></div>
+      <div class="field"><label for="sellerZipCity">Kod pocztowy i miasto</label><input type="text" id="sellerZipCity" placeholder="00-000 Warszawa"></div>
+      <div class="field"><label for="sellerEmail">E-mail (opcjonalnie)</label><input type="email" id="sellerEmail"></div>
+      <div class="field"><label for="businessStartDate">Data rozpoczęcia działalności</label><input type="date" id="businessStartDate"></div>
+      <div class="field"><label for="sellerBank">Nr konta firmowego — IBAN (opcjonalnie)</label><input type="text" id="sellerBank" placeholder="PL00 0000 0000 0000 0000 0000 0000"></div>
+      <div class="field"><label for="sellerBankName">Nazwa banku (opcjonalnie)</label><input type="text" id="sellerBankName" placeholder="PKO BANK POLSKI S.A."></div>
+      <div class="field"><label for="sellerBankSwift">SWIFT/BIC (opcjonalnie)</label><input type="text" id="sellerBankSwift" placeholder="BPKOPLPW"></div>
+    </div>
+    <div class="hint-box" id="phaseSuggestHint" style="margin-left:0;"></div>
+  </div>
+
+  <!-- Payment destinations -->
+  <div class="card settings-card">
+    <div class="step-head"><h2>Gdzie płacić ZUS i podatek</h2></div>
+    <p class="step-desc" style="margin-left:0;">Od kilku lat obowiązują dwa osobne, <strong>indywidualne</strong> numery rachunków — jeden do ZUS, drugi do urzędu skarbowego.
+      Nie da się ich wyliczyć samodzielnie (są nadawane przez ZUS/Ministerstwo Finansów), więc wpisz je tu raz, kiedy je znajdziesz —
+      podpowiemy je potem przy każdej deklaracji.</p>
+    <div class="field-grid">
+      <div class="field">
+        <label for="sellerZusAccount">Numer rachunku składkowego ZUS (NRS)</label>
+        <input type="text" id="sellerZusAccount" placeholder="26 cyfr, np. 83 1010 0000 0000 0000 0000 0000">
+        <span class="unit-note">Jednym przelewem na ten numer płacisz WSZYSTKIE składki ZUS naraz (społeczne + zdrowotną + FP).
+          Sprawdzisz go w <a href="https://www.zus.pl/eskladka/wyszukiwarka-nrs" target="_blank" rel="noopener">wyszukiwarce NRS na zus.pl</a> (po NIP/PESEL) albo w PUE/eZUS.</span>
+      </div>
+      <div class="field">
+        <label for="sellerTaxMicroAccount">Mikrorachunek podatkowy (US)</label>
+        <input type="text" id="sellerTaxMicroAccount" placeholder="26 cyfr">
+        <span class="unit-note">Na ten numer wpłacasz zaliczkę na PIT-28 (ryczałt). Wygenerujesz go na
+          <a href="https://www.podatki.gov.pl/mikrorachunek-podatkowy" target="_blank" rel="noopener">podatki.gov.pl/mikrorachunek-podatkowy</a> (po NIP/PESEL).</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ZUS/tax law parameters -->
+  <div class="card settings-card">
+    <div class="step-head"><h2>Parametry ZUS i podatku (stan prawny)</h2></div>
+    <p class="step-desc" style="margin-left:0;">Wartości domyślne odpowiadają stanowi prawnemu na 2026 r. Zmień je tylko, jeśli wiesz, że Twoja sytuacja jest inna, albo gdy zmienią się przepisy w kolejnym roku.</p>
+    <div class="field-grid">
       <div class="field">
         <label for="tierModeSelect">Składka zdrowotna do zastosowania</label>
         <select id="tierModeSelect">
@@ -319,82 +429,38 @@
         <input type="number" id="healthHighInput" value="1495.04" step="0.01" min="0">
         <span class="unit-note">zł/mies. — 9% ze 180% przeciętnego wynagrodzenia</span>
       </div>
+      <div class="field">
+        <label for="wypadkoweRateInput">Stopa składki wypadkowej</label>
+        <input type="number" id="wypadkoweRateInput" value="1.67" step="0.01" min="0">
+        <span class="unit-note">% — 1,67% domyślnie dla ≤9 ubezpieczonych, zależy od PKD</span>
+      </div>
+      <div class="field">
+        <label for="minWageInput">Minimalne wynagrodzenie (rok bieżący)</label>
+        <input type="number" id="minWageInput" value="4806" step="0.01" min="0">
+        <span class="unit-note">zł — podstawa dla ZUS preferencyjnego i progu Funduszu Pracy</span>
+      </div>
+      <div class="field">
+        <label for="avgWageForecastInput">Prognozowane przeciętne wynagrodzenie (rok bieżący)</label>
+        <input type="number" id="avgWageForecastInput" value="9421" step="0.01" min="0">
+        <span class="unit-note">zł — podstawa dla pełnego ZUS i górnego limitu Małego ZUS Plus</span>
+      </div>
     </div>
-
-    <div class="hint-box" id="cumulativeHint"></div>
   </div>
 
-  <!-- STEP 6: result -->
-  <div class="card" id="step-result">
-    <div class="step-head"><span class="step-num">6</span><h2>Wynik za ten okres</h2></div>
-    <p class="step-desc">Podatek liczony osobno dla każdej stawki ryczałtu użytej w tabeli faktur, proporcjonalnie do udziału w przychodzie.</p>
-
-    <ul class="result-list">
-      <li><span>Liczba faktur</span><span class="v" id="calcCount">0</span></li>
-      <li><span>Suma podstawy przychodu</span><span class="v" id="calcBasis">0,00 zł</span></li>
-      <li class="neg"><span>Odliczenie — składka społeczna</span><span class="v">&minus; <span id="calcSocial">0,00</span> zł</span></li>
-      <li class="neg"><span>Odliczenie — 50% składki zdrowotnej (<span id="calcHealthUsed">0,00</span> zł)</span><span class="v">&minus; <span id="calcHalfZus">0,00</span> zł</span></li>
-      <li><span><strong>Podstawa opodatkowania</strong></span><span class="v" id="calcTaxBase">0,00 zł</span></li>
-    </ul>
-
-    <div class="rate-breakdown" id="rateBreakdown"></div>
-
-    <div class="total-box">
-      <div>
-        <div class="label">Podatek do zapłaty</div>
-        <div class="period" id="stampPeriod">okres nieustawiony</div>
-      </div>
-      <div class="amount"><span id="calcDue">0</span> zł</div>
-    </div>
-
-    <div class="actions">
-      <button class="action primary" id="exportCsvBtn">Eksportuj CSV (ten miesiąc)</button>
-      <button class="action" id="exportYearCsvBtn">Eksportuj CSV (cały rok)</button>
+  <!-- Data management -->
+  <div class="card settings-card">
+    <div class="step-head"><h2>Zarządzanie danymi</h2></div>
+    <p class="step-desc" style="margin-left:0;">Kopia JSON zawiera komplet danych — profil, wszystkie miesiące, ustawienia. Przenieś nią dane na inne urządzenie albo zrób backup.</p>
+    <div class="actions" style="margin-left:0;">
       <button class="action" id="exportJsonBtn">Zapisz kopię (JSON)</button>
       <button class="action" id="importJsonBtn">Wczytaj kopię (JSON)</button>
       <button class="action danger" id="clearBtn">Wyczyść wszystko</button>
       <input type="file" id="importInput" accept="application/json">
     </div>
-
-    <p class="step-desc" style="margin-left:0; margin-top:22px;"><strong>Podsumowanie roczne</strong></p>
-    <div class="table-wrap" style="margin-left:0;">
-      <table id="yearSummaryTable">
-        <thead>
-          <tr><th>Miesiąc</th><th class="num">Przychód</th><th class="num">Podstawa opodatkowania</th><th class="num">Podatek</th></tr>
-        </thead>
-        <tbody id="yearSummaryBody"></tbody>
-        <tfoot>
-          <tr><td>Razem</td><td class="num" id="yearSumRevenue">0,00</td><td class="num" id="yearSumTaxBase">0,00</td><td class="num" id="yearSumTax">0,00</td></tr>
-        </tfoot>
-      </table>
-    </div>
   </div>
 
-  <!-- STEP 7: ZUS declaration helper -->
-  <div class="card" id="step-declaration">
-    <div class="step-head"><span class="step-num">7</span><h2>Deklaracja ZUS — <span id="declTitlePeriod">brak okresu</span></h2></div>
-    <p class="step-desc">Od 2022 r. deklarację ZUS DRA składa się co miesiąc (elektronicznie przez PUE/eZUS), nawet jeśli kwoty się nie zmieniają. Poniżej gotowe dane do przepisania — termin: do 20. dnia następnego miesiąca.</p>
-
-    <div class="hint-box" id="declKodTytulu" style="margin-left:0;"></div>
-
-    <div class="table-wrap" style="margin-left:0; margin-top:14px;">
-      <table>
-        <thead><tr><th>Składka</th><th class="num">Podstawa wymiaru</th><th class="num">Kwota</th></tr></thead>
-        <tbody id="declBody"></tbody>
-        <tfoot><tr><td>Razem do zapłaty</td><td></td><td class="num" id="declTotal">0,00</td></tr></tfoot>
-      </table>
-    </div>
-
-    <p class="step-desc" style="margin-left:0; margin-top:22px;"><strong>Roczne rozliczenie składki zdrowotnej (ZUS DRA, termin do 20 maja)</strong></p>
-    <div class="hint-box" id="declAnnualHealth" style="margin-left:0;"></div>
-
-    <div class="notice-box" style="margin-top:16px;">
-      <strong>Ważne:</strong> to wyliczenie pomocnicze, nie oficjalny formularz — nie mam dostępu do bieżących ustawień Twojego
-      konta w ZUS (aktualny kod tytułu ubezpieczenia, zwolnienia, dotychczas wykorzystane miesiące ulg, limit 36/60 miesięcy dla
-      Małego ZUS Plus, limit 24 miesięcy dla ZUS preferencyjnego, faktyczna stopa procentowa składki wypadkowej wg Twojego PKD).
-      Deklarację złóż i zweryfikuj przez <strong>PUE/eZUS</strong> (www.zus.pl) — tam też zobaczysz dokładne, oficjalne kwoty.
-    </div>
   </div>
+  <!-- ============ /TAB: USTAWIENIA ============ -->
 
   <footer class="note">
     <strong>Czego ta aplikacja NIE robi:</strong> nie wysyła faktur do KSeF (to wymaga Twojego logowania — Profil Zaufany,
@@ -405,8 +471,8 @@
     <strong>Wzór podatku:</strong> Podstawa opodatkowania = suma podstawy przychodu &minus; składka społeczna (100%, tylko w fazie preferencyjnej
     lub pełnego ZUS) &minus; 50% zapłaconej składki zdrowotnej. Jeśli w tabeli używasz kilku stawek ryczałtu, odliczenia są dzielone
     proporcjonalnie do udziału każdej stawki w przychodzie, a podatek liczony osobno dla każdej z nich i sumowany. Przychód narastająco
-    do progu składki zdrowotnej liczy się teraz automatycznie z sumy wszystkich miesięcy danego roku zapisanych w aplikacji, plus
-    ewentualny przychód sprzed rozpoczęcia korzystania z niej (krok 2).<br><br>
+    do progu składki zdrowotnej liczy się automatycznie z sumy wszystkich miesięcy danego roku zapisanych w aplikacji, plus
+    ewentualny przychód sprzed rozpoczęcia korzystania z niej.<br><br>
     <strong>Domyślne kwoty (stan prawny 2026 r.):</strong> składka zdrowotna ryczałtu — 498,35 zł / 830,58 zł / 1495,04 zł (progi
     60 000 zł i 300 000 zł, 9% od odpowiednio 60%/100%/180% przeciętnego wynagrodzenia z IV kw. 2025 = 9228,64 zł); ulga na start —
     6 pełnych miesięcy kalendarzowych bez składek społecznych (tylko zdrowotna); preferencyjny ZUS — 24 miesiące, podstawa 30%
@@ -414,10 +480,10 @@
     poprzedni (dla ryczałtu: 50% przychodu), dostępny przy przychodzie za rok poprzedni do 120 000 zł; pełny ZUS — podstawa 60%
     prognozowanego przeciętnego wynagrodzenia (5652,60 zł). Składki społeczne liczone są ze standardowych stawek: emerytalna
     19,52%, rentowa 8%, wypadkowa 1,67% (zależnie od PKD), chorobowa dobrowolna 2,45%, Fundusz Pracy 2,45% (gdy podstawa ≥
-    minimalne wynagrodzenie). Twoja sytuacja może się różnić — wszystkie kwoty i stawki można zmienić ręcznie. Wyliczenie ma
-    charakter pomocniczy i nie zastępuje weryfikacji księgowej.<br><br>
+    minimalne wynagrodzenie). Twoja sytuacja może się różnić — wszystkie kwoty i stawki można zmienić ręcznie w Ustawieniach.
+    Wyliczenie ma charakter pomocniczy i nie zastępuje weryfikacji księgowej.<br><br>
     <strong>Zapis danych:</strong> wszystko zapisuje się automatycznie w pamięci przeglądarki (localStorage) na tym urządzeniu.
-    Rób regularnie kopię JSON (krok 6), żeby nie stracić danych przy czyszczeniu przeglądarki i móc pracować na innym urządzeniu.
+    Rób regularnie kopię JSON (zakładka Ustawienia), żeby nie stracić danych przy czyszczeniu przeglądarki i móc pracować na innym urządzeniu.
   </footer>
 
 </div>

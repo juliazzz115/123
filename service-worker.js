@@ -1,4 +1,4 @@
-const CACHE_NAME = 'jdg-ryczalt-v2';
+const CACHE_NAME = 'jdg-ryczalt-v3';
 const SHELL_FILES = [
   './',
   './index.html',
