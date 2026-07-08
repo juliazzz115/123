@@ -64,6 +64,23 @@ html,body{
 .app-header h1{ font-size: 24px; margin: 0 0 6px; font-weight: 700; }
 .app-header p{ margin:0; color: var(--muted); font-size: 14.5px; }
 
+.stats-row{
+  display:grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 20px;
+}
+@media (max-width: 620px){ .stats-row{ grid-template-columns: 1fr; } }
+.stat-tile{
+  background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+  padding: 18px 20px; box-shadow: 0 1px 2px rgba(20,33,61,0.04);
+  display:flex; flex-direction:column; gap: 4px;
+}
+.stat-tile .stat-value{ font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.stat-tile .stat-label{ font-size: 12.5px; color: var(--muted); }
+
+.filters-row{
+  display:flex; align-items:flex-end; gap: 14px; flex-wrap: wrap; margin-bottom: 16px;
+}
+.filters-row .field{ min-width: 130px; }
+
 .notice-box{
   background: #fff7e6; border: 1px solid #f0d9a8; border-radius: 10px;
   padding: 14px 16px; margin-bottom: 20px; font-size: 13px; line-height: 1.55; color: #6b5417;
@@ -71,7 +88,7 @@ html,body{
 .notice-box strong{ color: #4d3d10; }
 
 .invoice-preview{
-  margin: 20px 0 0 38px; background:#f4f6fb; border-radius: 10px; padding: 16px 18px; font-size: 13.5px;
+  margin: 20px 0 0; background:#f4f6fb; border-radius: 10px; padding: 16px 18px; font-size: 13.5px;
 }
 .invoice-preview h3{ margin: 0 0 10px; font-size: 14px; }
 .invoice-preview pre{
@@ -90,11 +107,11 @@ html,body{
   flex-shrink: 0;
 }
 .step-head h2{ font-size: 17px; margin:0; font-weight: 700; }
-.step-desc{ margin: 0 0 18px 38px; color: var(--muted); font-size: 13.5px; line-height:1.5; }
+.step-desc{ margin: 0 0 18px; color: var(--muted); font-size: 13.5px; line-height:1.5; }
 
 /* year / month switcher */
 .year-switcher{
-  margin-left: 38px; display:flex; align-items:center; gap: 14px; margin-bottom: 14px;
+  display:flex; align-items:center; gap: 14px; margin-bottom: 14px;
 }
 .year-nav-btn{
   width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--line); background:#fff;
@@ -104,7 +121,7 @@ html,body{
 .year-label{ font-size: 18px; font-weight:700; min-width: 56px; text-align:center; }
 
 .month-grid{
-  margin-left: 38px; display:grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+  display:grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
 }
 @media (max-width: 620px){ .month-grid{ grid-template-columns: repeat(3, 1fr); } }
 .month-cell{
@@ -127,7 +144,6 @@ html,body{
 
 /* upload */
 .dropzone{
-  margin-left: 38px;
   border: 1.5px dashed #b7c0d1; border-radius: 10px; background: #f8f9fc;
   padding: 22px; text-align:center; cursor:pointer; position:relative;
   transition: border-color .15s, background .15s;
@@ -136,15 +152,15 @@ html,body{
 .dropzone input[type=file]{ position:absolute; inset:0; opacity:0; cursor:pointer; }
 .dropzone p{ margin:0; font-size: 13.5px; color: var(--muted); }
 .dropzone strong{ color: var(--ink); }
-.manual-add{ margin: 10px 0 0 38px; }
+.manual-add{ margin: 10px 0 0; }
 .link-btn{
   background:none; border:none; color: var(--blue); cursor:pointer; font-size: 13px;
   text-decoration: underline; text-underline-offset: 2px; padding: 2px 0;
 }
-#parseErrors{ margin: 8px 0 0 38px; font-size: 12.5px; color: var(--red); }
+#parseErrors{ margin: 8px 0 0; font-size: 12.5px; color: var(--red); }
 
 /* table */
-.table-wrap{ margin: 16px 0 0 38px; overflow-x:auto; border: 1px solid var(--line); border-radius: 10px; }
+.table-wrap{ margin: 16px 0 0; overflow-x:auto; border: 1px solid var(--line); border-radius: 10px; }
 table{ width:100%; border-collapse: collapse; font-size: 13px; min-width: 760px; }
 thead th{
   background: #f4f6fb; color: var(--muted); text-transform: uppercase; letter-spacing: .03em;
@@ -179,7 +195,7 @@ tfoot td{ font-weight:700; background:#f4f6fb; border-top: 2px solid var(--line)
 #yearSummaryTable{ min-width: 480px; }
 
 /* ZUS section */
-.phase-options{ margin-left: 38px; display:flex; flex-direction:column; gap:10px; margin-bottom: 16px; }
+.phase-options{ display:flex; flex-direction:column; gap:10px; margin-bottom: 16px; }
 .phase-option{
   display:flex; align-items:flex-start; gap:10px; border:1px solid var(--line); border-radius: 10px;
   padding: 12px 14px; cursor:pointer; font-size: 13.5px; line-height:1.45;
@@ -189,7 +205,7 @@ tfoot td{ font-weight:700; background:#f4f6fb; border-top: 2px solid var(--line)
 .phase-option .t{ font-weight:700; display:block; }
 .phase-option .d{ color: var(--muted); }
 
-.field-grid{ margin-left: 38px; display:grid; grid-template-columns: repeat(2,1fr); gap: 14px 20px; }
+.field-grid{ display:grid; grid-template-columns: repeat(2,1fr); gap: 14px 20px; }
 @media (max-width: 620px){ .field-grid{ grid-template-columns: 1fr; } }
 .field{ display:flex; flex-direction:column; gap:5px; }
 .field label{ font-size: 12.5px; color: var(--muted); font-weight:600; }
@@ -200,12 +216,12 @@ tfoot td{ font-weight:700; background:#f4f6fb; border-top: 2px solid var(--line)
 .field input:focus, .field select:focus{ outline: 2px solid var(--blue); outline-offset:-1px; }
 .field .unit-note{ font-size: 11.5px; color: var(--muted); }
 .hint-box{
-  margin: 16px 38px 0; background:#f4f6fb; border-radius: 8px; padding: 10px 12px;
+  margin: 16px 0 0; background:#f4f6fb; border-radius: 8px; padding: 10px 12px;
   font-size: 12.5px; color: var(--muted);
 }
 
 /* result */
-.result-list{ list-style:none; margin: 0 0 0 38px; padding:0; }
+.result-list{ list-style:none; margin: 0; padding:0; }
 .result-list li{
   display:flex; justify-content:space-between; gap: 12px; padding: 9px 0;
   border-bottom: 1px solid var(--line); font-size: 14px;
@@ -213,7 +229,7 @@ tfoot td{ font-weight:700; background:#f4f6fb; border-top: 2px solid var(--line)
 .result-list li .v{ font-variant-numeric: tabular-nums; font-weight:600; white-space:nowrap; }
 .result-list li.neg .v{ color: var(--red); }
 .result-list li.sub{ font-size:13px; color: var(--muted); }
-.rate-breakdown{ margin: 4px 0 8px 38px; font-size: 12.5px; color: var(--muted); }
+.rate-breakdown{ margin: 4px 0 8px; font-size: 12.5px; color: var(--muted); }
 .rate-breakdown table{ width:auto; min-width: 0; font-size:12.5px; }
 .rate-breakdown th, .rate-breakdown td{ padding: 4px 10px; }
 
@@ -225,7 +241,7 @@ tfoot td{ font-weight:700; background:#f4f6fb; border-top: 2px solid var(--line)
 .total-box .amount{ font-size: 32px; font-weight: 800; }
 .total-box .period{ font-size:12.5px; opacity:.65; }
 
-.actions{ display:flex; gap:10px; flex-wrap:wrap; margin: 20px 0 0 38px; }
+.actions{ display:flex; gap:10px; flex-wrap:wrap; margin: 20px 0 0; }
 button.action{
   font-size: 13px; font-weight:600; border-radius: 8px; border: 1px solid var(--line);
   background: #fff; color: var(--ink); padding: 9px 16px; cursor:pointer;

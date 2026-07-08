@@ -255,10 +255,9 @@
 
   // ---------- tabs ----------
   function switchTab(tab){
-    const isPraca = tab === 'praca';
-    document.getElementById('tabPraca').hidden = !isPraca;
-    document.getElementById('tabUstawienia').hidden = isPraca;
-    document.getElementById('topbarSubnav').classList.toggle('hidden', !isPraca);
+    document.getElementById('tabSchety').hidden = tab !== 'schety';
+    document.getElementById('tabNalogi').hidden = tab !== 'nalogi';
+    document.getElementById('tabUstawienia').hidden = tab !== 'ustawienia';
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tab));
   }
   document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -353,6 +352,44 @@
     fillBuyerFields(el._buyers[idx]);
   });
 
+  // ---------- invoice form show/hide ----------
+  function showInvoiceForm(){
+    document.getElementById('invoiceFormCard').style.display = 'block';
+    document.getElementById('invoiceFormCard').scrollIntoView({behavior:'smooth', block:'start'});
+  }
+  function hideInvoiceForm(){
+    document.getElementById('invoiceFormCard').style.display = 'none';
+    document.getElementById('invoicePreview').innerHTML = '';
+  }
+  function resetInvoiceForm(){
+    draftItems = [];
+    draftItemIdCounter = 1;
+    document.getElementById('buyerName').value = '';
+    document.getElementById('buyerNip').value = '';
+    document.getElementById('buyerVatId').value = '';
+    document.getElementById('buyerStreet').value = '';
+    document.getElementById('buyerZipCity').value = '';
+    document.getElementById('buyerJst').checked = false;
+    document.getElementById('buyerGv').checked = false;
+    document.getElementById('buyerIdType').value = 'nip';
+    updateBuyerIdFieldsVisibility();
+    document.getElementById('invDate').value = new Date().toISOString().slice(0,10);
+    document.getElementById('invSaleDate').value = '';
+    document.getElementById('invNumber').value = suggestInvoiceNumber(document.getElementById('invDate').value);
+    document.getElementById('invoicePreview').innerHTML = '';
+    addDraftItem();
+  }
+
+  document.getElementById('newInvoiceBtn').addEventListener('click', () => {
+    resetInvoiceForm();
+    showInvoiceForm();
+  });
+  document.getElementById('cancelInvoiceBtn').addEventListener('click', hideInvoiceForm);
+  document.getElementById('toggleImportBtn').addEventListener('click', () => {
+    const panel = document.getElementById('importPanel');
+    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+  });
+
   function loadDraftFromSnapshot(snapshot){
     fillBuyerFields(snapshot.buyer || {});
 
@@ -369,14 +406,13 @@
     document.getElementById('invSplitPayment').checked = !!snapshot.splitPayment;
     document.getElementById('invDate').value = new Date().toISOString().slice(0,10);
     document.getElementById('invSaleDate').value = '';
-    document.getElementById('invNumber').value = suggestInvoiceNumber();
+    document.getElementById('invNumber').value = suggestInvoiceNumber(document.getElementById('invDate').value);
 
     draftItems = (snapshot.items || []).map(it => ({...it, id: draftItemIdCounter++}));
     if(!draftItems.length) addDraftItem(); else renderDraftItems();
 
-    switchTab('praca');
-    const el = document.getElementById('step-invoice');
-    if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
+    switchTab('schety');
+    showInvoiceForm();
   }
 
   // ---------- draft invoice items ----------
@@ -439,8 +475,8 @@
     });
   }
 
-  function suggestInvoiceNumber(){
-    const key = state.activePeriod || currentMonthKey();
+  function suggestInvoiceNumber(dateStr){
+    const key = dateStr ? dateStr.slice(0,7) : currentMonthKey();
     const period = state.periods[key];
     const issuedCount = (period ? period.rows.filter(r => r.source === 'issued').length : 0) + 1;
     const [y,m] = key.split('-');
@@ -597,7 +633,7 @@ ${platnoscXml}
     if(currency !== 'PLN' && kurs <= 0){ alert('Укажите курс валюты для пересчёта в PLN (для учёта доходов).'); return; }
 
     const inv = {
-      number: document.getElementById('invNumber').value || suggestInvoiceNumber(),
+      number: document.getElementById('invNumber').value || suggestInvoiceNumber(invDateVal),
       date: invDateVal,
       saleDate: document.getElementById('invSaleDate').value,
       place: document.getElementById('invPlace').value,
@@ -650,7 +686,7 @@ ${platnoscXml}
     const preview = document.getElementById('invoicePreview');
     preview.innerHTML = `
       <h3>Готово — предпросмотр счёта ${esc(inv.number)}</h3>
-      <p style="margin:0 0 6px;">Добавлено в учёт доходов месяца ${esc(monthLabel(periodKey))}. Скачайте XML-файл (рабочий) или просто перепишите данные ниже
+      <p style="margin:0 0 6px;">Добавлено в список месяца ${esc(monthLabel(periodKey))}. Скачайте XML-файл (рабочий) или просто перепишите данные ниже
       в бесплатное Aplikację Podatnika KSeF / e-mikrofirmę — это займёт пару секунд, и вы будете уверены в соответствии схеме.</p>
       <pre>Продавец: ${esc(seller.name)}, NIP ${esc(seller.nip)}
 Покупатель: ${esc(buyer.name)}, ${buyerIdLine}
@@ -667,27 +703,17 @@ ${itemLines}
       </div>
     `;
 
-    draftItems = [];
-    draftItemIdCounter = 1;
-    document.getElementById('buyerName').value = '';
-    document.getElementById('buyerNip').value = '';
-    document.getElementById('buyerVatId').value = '';
-    document.getElementById('buyerStreet').value = '';
-    document.getElementById('buyerZipCity').value = '';
-    document.getElementById('buyerJst').checked = false;
-    document.getElementById('buyerGv').checked = false;
-    document.getElementById('invSaleDate').value = '';
+    resetInvoiceForm();
 
     state.activePeriod = periodKey;
+    uiYear = parseInt(periodKey.slice(0,4), 10);
     saveState();
     syncZusFieldsFromPeriod();
-    uiYear = parseInt(periodKey.slice(0,4), 10);
     renderYearMonthSwitcher();
-    renderEvidence();
+    renderInvoiceList();
     renderYearSummary();
     renderServiceDatalist();
     renderBuyerQuickPick();
-    addDraftItem();
   });
 
   // ---------- KSeF XML import / parsing ----------
@@ -783,7 +809,7 @@ ${itemLines}
       }
       saveState();
       renderYearMonthSwitcher();
-      renderEvidence();
+      renderInvoiceList();
       renderYearSummary();
       parseErrorsEl.textContent = errors.length ? ('Не удалось прочитать: ' + errors.join(' · ')) : '';
     }
@@ -798,79 +824,137 @@ ${itemLines}
   dropzone.addEventListener('drop', e => { if(e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); });
 
   document.getElementById('manualAddBtn').addEventListener('click', () => {
-    if(!state.activePeriod){ alert('Сначала выберите или создайте месяц в шаге 1.'); return; }
-    ensurePeriod(state.activePeriod).rows.push({ id: state.idCounter++, date: '', number: 'ручная запись', buyer: '', net: 0, vat: 0, gross: 0, basis: 0, rate: 3, source: 'manual' });
+    const key = currentMonthKey();
+    const today = new Date().toISOString().slice(0,10);
+    ensurePeriod(key).rows.push({ id: state.idCounter++, date: today, number: 'ручная запись', buyer: '', net: 0, vat: 0, gross: 0, basis: 0, rate: 3, source: 'manual' });
     saveState();
-    renderEvidence();
+    renderInvoiceList();
     renderYearSummary();
     renderYearMonthSwitcher();
   });
 
-  // ---------- evidence table ----------
-  function renderEvidence(){
+  // ---------- invoices list (Счета tab) ----------
+  function getAllEntriesFlat(){
+    const list = [];
+    Object.keys(state.periods).sort().forEach(k => {
+      state.periods[k].rows.forEach(r => list.push({ row: r, periodKey: k }));
+    });
+    return list;
+  }
+
+  function populateFilterYearOptions(){
+    const sel = document.getElementById('filterYear');
+    const prevVal = sel.value;
+    const years = new Set(Object.keys(state.periods).map(k => k.slice(0,4)));
+    years.add(String(new Date().getFullYear()));
+    const sorted = Array.from(years).sort().reverse();
+    sel.innerHTML = '<option value="">Все годы</option>' + sorted.map(y => `<option value="${y}">${y}</option>`).join('');
+    sel.value = sorted.includes(prevVal) ? prevVal : '';
+  }
+
+  function getFilteredEntries(){
+    const yearFilter = document.getElementById('filterYear').value;
+    const monthFilter = document.getElementById('filterMonth').value;
+    const search = (document.getElementById('filterSearch').value || '').trim().toLowerCase();
+    return getAllEntriesFlat().filter(({row, periodKey}) => {
+      const y = periodKey.slice(0,4), m = periodKey.slice(5,7);
+      if(yearFilter && y !== yearFilter) return false;
+      if(monthFilter && m !== monthFilter) return false;
+      if(search){
+        const hay = ((row.buyer||'') + ' ' + (row.number||'')).toLowerCase();
+        if(!hay.includes(search)) return false;
+      }
+      return true;
+    }).sort((a,b) => (b.row.date||'').localeCompare(a.row.date||'') || (b.row.id - a.row.id));
+  }
+
+  function renderInvoiceStats(entries){
+    const curYear = String(new Date().getFullYear());
+    let sumYear = 0;
+    Object.keys(state.periods).forEach(k => { if(k.slice(0,4) === curYear) sumYear += periodBasisSum(k); });
+    document.getElementById('statYear').textContent = fmt(sumYear) + ' zł';
+    document.getElementById('statYearLabel').textContent = 'Доход с начала ' + curYear + ' года';
+    const sumFiltered = entries.reduce((s,e) => s+(e.row.basis||0), 0);
+    document.getElementById('statFiltered').textContent = fmt(sumFiltered) + ' zł';
+    document.getElementById('statCount').textContent = entries.length;
+  }
+
+  function renderInvoiceList(){
+    populateFilterYearOptions();
+    const entries = getFilteredEntries();
     const tbody = document.getElementById('tbody');
-    const key = state.activePeriod;
-    const rows = key && state.periods[key] ? state.periods[key].rows : null;
-
-    document.getElementById('evTitlePeriod').textContent = key ? monthLabel(key) : 'период не выбран';
-
     tbody.innerHTML = '';
-    if(rows === null){
-      tbody.innerHTML = '<tr class="empty-row"><td colspan="10">Выберите или создайте период в шаге 1.</td></tr>';
-    } else if(!rows.length){
-      tbody.innerHTML = '<tr class="empty-row"><td colspan="10">Нет счетов — загрузите файлы выше.</td></tr>';
+    if(!entries.length){
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="10">Счетов не найдено.</td></tr>';
     } else {
-      rows.forEach((row, idx) => {
+      entries.forEach(({row, periodKey}) => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
-          <td>${idx+1}</td>
-          <td contenteditable="true" data-field="date">${esc(row.date || '')}</td>
-          <td contenteditable="true" data-field="number">${esc(row.number || '')}</td>
-          <td contenteditable="true" data-field="buyer">${esc(row.buyer || '')}</td>
+          <td>${monthLabel(periodKey)}</td>
+          <td contenteditable="true" data-field="date" data-period="${periodKey}" data-id="${row.id}">${esc(row.date || '')}</td>
+          <td contenteditable="true" data-field="number" data-period="${periodKey}" data-id="${row.id}">${esc(row.number || '')}</td>
+          <td contenteditable="true" data-field="buyer" data-period="${periodKey}" data-id="${row.id}">${esc(row.buyer || '')}</td>
           <td class="num">${fmt(row.net)}</td>
           <td class="num">${fmt(row.vat)}</td>
           <td class="num">${fmt(row.gross)}</td>
-          <td class="num editable-cell"><input type="number" step="0.01" value="${row.basis}" data-id="${row.id}" data-role="basis"></td>
-          <td class="rate-cell"><select data-id="${row.id}" data-role="rate">${rateOptionsHtml(row.rate)}</select></td>
-          <td><div class="row-actions">${row.source==='issued' && row.snapshot ? `<button class="dup-btn" data-id="${row.id}" title="Дублировать — выставить похожий счёт в этом месяце">⧉</button>` : ''}<button class="del-btn" data-id="${row.id}" title="Удалить">&times;</button></div></td>
+          <td class="num editable-cell"><input type="number" step="0.01" value="${row.basis}" data-period="${periodKey}" data-id="${row.id}" data-role="basis"></td>
+          <td class="rate-cell"><select data-period="${periodKey}" data-id="${row.id}" data-role="rate">${rateOptionsHtml(row.rate)}</select></td>
+          <td><div class="row-actions">${row.source==='issued' && row.snapshot ? `<button class="dup-btn" data-period="${periodKey}" data-id="${row.id}" title="Дублировать — выставить похожий счёт">⧉</button>` : ''}<button class="del-btn" data-period="${periodKey}" data-id="${row.id}" title="Удалить">&times;</button></div></td>
         `;
         tbody.appendChild(tr);
-
-        tr.querySelectorAll('[contenteditable]').forEach(cell => {
-          cell.addEventListener('blur', () => { row[cell.dataset.field] = cell.textContent.trim(); saveState(); });
-        });
       });
     }
 
+    let sumNet=0, sumVat=0, sumGross=0, sumBasis=0;
+    entries.forEach(({row}) => { sumNet+=row.net; sumVat+=row.vat; sumGross+=row.gross; sumBasis+=(row.basis||0); });
+    document.getElementById('sumNet').textContent = fmt(sumNet);
+    document.getElementById('sumVat').textContent = fmt(sumVat);
+    document.getElementById('sumGross').textContent = fmt(sumGross);
+    document.getElementById('sumBasis').textContent = fmt(sumBasis);
+
+    tbody.querySelectorAll('[contenteditable]').forEach(cell => {
+      cell.addEventListener('blur', () => {
+        const row = state.periods[cell.dataset.period].rows.find(r => r.id == cell.dataset.id);
+        if(row) row[cell.dataset.field] = cell.textContent.trim();
+        saveState();
+      });
+    });
     tbody.querySelectorAll('[data-role="basis"]').forEach(inp => {
       inp.addEventListener('input', () => {
-        const row = state.periods[key].rows.find(r => r.id == inp.dataset.id);
+        const row = state.periods[inp.dataset.period].rows.find(r => r.id == inp.dataset.id);
         if(row) row.basis = parseFloat(inp.value) || 0;
-        saveState(); updateSummary(); renderYearSummary(); renderYearMonthSwitcher();
+        saveState(); renderInvoiceList(); renderYearSummary(); updateSummary(); renderYearMonthSwitcher();
       });
     });
     tbody.querySelectorAll('[data-role="rate"]').forEach(sel => {
       sel.addEventListener('change', () => {
-        const row = state.periods[key].rows.find(r => r.id == sel.dataset.id);
+        const row = state.periods[sel.dataset.period].rows.find(r => r.id == sel.dataset.id);
         if(row) row.rate = parseFloat(sel.value);
-        saveState(); updateSummary(); renderYearSummary(); renderYearMonthSwitcher();
+        saveState(); renderInvoiceList(); renderYearSummary(); updateSummary(); renderYearMonthSwitcher();
       });
     });
     tbody.querySelectorAll('.del-btn').forEach(btn => {
       btn.addEventListener('click', () => {
-        state.periods[key].rows = state.periods[key].rows.filter(r => r.id != btn.dataset.id);
-        saveState(); renderEvidence(); renderYearSummary(); renderYearMonthSwitcher();
+        const p = state.periods[btn.dataset.period];
+        p.rows = p.rows.filter(r => r.id != btn.dataset.id);
+        saveState(); renderInvoiceList(); renderYearSummary(); updateSummary(); renderYearMonthSwitcher();
       });
     });
     tbody.querySelectorAll('.dup-btn').forEach(btn => {
       btn.addEventListener('click', () => {
-        const row = state.periods[key].rows.find(r => r.id == btn.dataset.id);
+        const p = state.periods[btn.dataset.period];
+        const row = p.rows.find(r => r.id == btn.dataset.id);
         if(row && row.snapshot) loadDraftFromSnapshot(row.snapshot);
       });
     });
 
-    updateSummary();
+    renderInvoiceStats(entries);
   }
+
+  ['filterYear','filterMonth'].forEach(id => {
+    document.getElementById(id).addEventListener('change', renderInvoiceList);
+  });
+  document.getElementById('filterSearch').addEventListener('input', renderInvoiceList);
 
   // ---------- ZUS / phase handling ----------
   function renderZusCard(){
@@ -878,8 +962,9 @@ ${itemLines}
     const hintEl = document.getElementById('zusPhaseHint');
     const body = document.getElementById('socialBreakdownBody');
     const overrideSelect = document.getElementById('phaseOverrideSelect');
+    document.getElementById('zusMonthLabel').textContent = key ? monthLabel(key) : '— месяц не выбран —';
     if(!key || !state.periods[key]){
-      hintEl.textContent = 'Выберите или создайте период в шаге 1.';
+      hintEl.textContent = 'Выберите месяц выше.';
       body.innerHTML = '<tr><td colspan="6">—</td></tr>';
       overrideSelect.value = '';
       return;
@@ -962,7 +1047,7 @@ ${itemLines}
     if(!start){ el.textContent = 'Заполните «Дату открытия ИП» в разделе выше, чтобы автоматический режим считал фазы правильно — без неё каждый месяц получит «Льготу на старт».'; return; }
     const info = getPhaseTransitionInfo();
     const ulgaNote = info.ulgaMonths === 7 ? ' (7 месяцев, так как ИП открыто не с 1-го числа — первый неполный месяц не считается «полным»)' : ' (6 месяцев, так как ИП открыто с 1-го числа)';
-    el.textContent = `Считая от ${start}: льгота на старт до ${formatDateRu(info.ulgaEnd)}${ulgaNote}, льготный ZUS с ${formatDateRu(info.prefStart)} до ${formatDateRu(info.prefEnd)}, полный ZUS с ${formatDateRu(info.fullStart)}. Это можно переопределить для отдельного месяца во вкладке «Работа».`;
+    el.textContent = `Считая от ${start}: льгота на старт до ${formatDateRu(info.ulgaEnd)}${ulgaNote}, льготный ZUS с ${formatDateRu(info.prefStart)} до ${formatDateRu(info.prefEnd)}, полный ZUS с ${formatDateRu(info.fullStart)}. Это можно переопределить для отдельного месяца во вкладке «Налоги».`;
   }
 
   const settingsFieldMap = { thresholdLowInput:'thresholdLow', thresholdHighInput:'thresholdHigh', healthLowInput:'healthLow', healthMidInput:'healthMid', healthHighInput:'healthHigh' };
@@ -990,16 +1075,13 @@ ${itemLines}
     });
   });
 
-  // ---------- result summary ----------
+  // ---------- result summary (PIT) ----------
   function updateSummary(){
     const key = state.activePeriod;
     const period = key ? state.periods[key] : null;
     const c = key ? computeForPeriod(key) : null;
 
-    document.getElementById('sumNet').textContent = fmt(c ? c.sumNet : 0);
-    document.getElementById('sumVat').textContent = fmt(c ? c.sumVat : 0);
-    document.getElementById('sumGross').textContent = fmt(c ? c.sumGross : 0);
-    document.getElementById('sumBasis').textContent = fmt(c ? c.sumBasis : 0);
+    document.getElementById('pitMonthLabel').textContent = key ? monthLabel(key) : '— месяц не выбран —';
     document.getElementById('calcCount').textContent = period ? period.rows.length : 0;
     document.getElementById('calcBasis').textContent = fmt(c ? c.sumBasis : 0) + ' zł';
 
@@ -1026,7 +1108,7 @@ ${itemLines}
     const tierLabel = c ? (c.tier==='low' ? 'I порог (до '+fmt(s.thresholdLow)+' zł)' : c.tier==='mid' ? 'II порог ('+fmt(s.thresholdLow)+'–'+fmt(s.thresholdHigh)+' zł)' : 'III порог (свыше '+fmt(s.thresholdHigh)+' zł)') : '';
     document.getElementById('cumulativeHint').textContent = c
       ? ('Доход нарастающим итогом: ' + fmt(c.cumulative) + ' zł → ' + tierLabel + ' → взнос на медстрахование: ' + fmt(c.healthUsed) + ' zł/мес.' + (s.tierMode!=='auto' ? ' (задано вручную)' : ''))
-      : 'Выберите период в шаге 1, чтобы увидеть расчёты.';
+      : 'Выберите месяц выше, чтобы увидеть расчёты.';
 
     document.getElementById('stampPeriod').textContent = key ? monthLabel(key) : 'период не выбран';
 
@@ -1044,12 +1126,12 @@ ${itemLines}
 
     zusBox.innerHTML = zusAcc
       ? `<strong>Куда платить:</strong> одним переводом на ваш номер расчётного счёта (NRS): <strong>${esc(zusAcc)}</strong>. Это покрывает все взносы сразу (социальные + медицинский + Фонд труда). Срок: до 20-го числа следующего месяца.`
-      : `<strong>Куда платить:</strong> у вас ещё не сохранён номер расчётного счёта (NRS). Заполните его во вкладке <strong>Настройки → Куда платить ZUS и налог</strong> — одним переводом на этот номер платятся все взносы сразу. Срок: до 20-го числа следующего месяца.`;
+      : `<strong>Куда платить:</strong> у вас ещё не сохранён номер расчётного счёта (NRS). Заполните его во вкладке <strong>Настройки → Куда платить ZUS и налог</strong>. Срок: до 20-го числа следующего месяца.`;
 
     const due = key ? computeForPeriod(key).due : 0;
     taxBox.innerHTML = taxAcc
       ? `<strong>Куда платить:</strong> ${fmt(due)} zł на ваш налоговый микросчёт: <strong>${esc(taxAcc)}</strong>. В назначении платежа укажите «PIT-28» и период${key ? ' ('+esc(monthLabel(key))+')' : ''}. Срок: до 20-го числа месяца, следующего за месяцем дохода.`
-      : `<strong>Куда платить:</strong> у вас ещё не сохранён налоговый микросчёт. Заполните его во вкладке <strong>Настройки → Куда платить ZUS и налог</strong>. Срок: до 20-го числа месяца, следующего за месяцем дохода, в назначении платежа укажите «PIT-28».`;
+      : `<strong>Куда платить:</strong> у вас ещё не сохранён налоговый микросчёт. Заполните его во вкладке <strong>Настройки → Куда платить ZUS и налог</strong>. Срок: до 20-го числа месяца, следующего за месяцем дохода.`;
   }
 
   function computeAnnualHealthReconciliation(year){
@@ -1074,14 +1156,13 @@ ${itemLines}
 
   function renderDeclaration(){
     const key = state.activePeriod;
-    document.getElementById('declTitlePeriod').textContent = key ? monthLabel(key) : 'период не выбран';
     const kodEl = document.getElementById('declKodTytulu');
     const body = document.getElementById('declBody');
     const totalEl = document.getElementById('declTotal');
     const annualEl = document.getElementById('declAnnualHealth');
 
     if(!key || !state.periods[key]){
-      kodEl.textContent = 'Выберите или создайте период в шаге 1.';
+      kodEl.textContent = 'Выберите месяц выше.';
       body.innerHTML = '';
       totalEl.textContent = '0,00';
       annualEl.textContent = '';
@@ -1146,7 +1227,7 @@ ${itemLines}
     document.getElementById('yearSumTax').textContent = fmt(sumTax);
   }
 
-  // ---------- year / month switcher ----------
+  // ---------- year / month switcher (Налоги tab) ----------
   let uiYear = new Date().getFullYear();
 
   function renderYearMonthSwitcher(){
@@ -1178,7 +1259,7 @@ ${itemLines}
       btn.addEventListener('click', e => {
         e.stopPropagation();
         const k = btn.dataset.key;
-        if(confirm(`Удалить весь месяц ${monthLabel(k)} вместе с его учётом доходов? Это действие нельзя отменить.`)){
+        if(confirm(`Удалить весь месяц ${monthLabel(k)} вместе со всеми его счетами? Это действие нельзя отменить.`)){
           delete state.periods[k];
           if(state.activePeriod === k){
             const remaining = Object.keys(state.periods).sort();
@@ -1187,8 +1268,9 @@ ${itemLines}
           }
           saveState();
           renderYearMonthSwitcher();
-          renderEvidence();
+          renderInvoiceList();
           renderYearSummary();
+          updateSummary();
         }
       });
     });
@@ -1205,13 +1287,6 @@ ${itemLines}
     const p = state.periods[key];
     if(!p) return;
     renderZusCard();
-
-    document.getElementById('invNumber').value = suggestInvoiceNumber();
-    const invDateEl = document.getElementById('invDate');
-    if(!invDateEl.value || invDateEl.value.slice(0,7) !== key){
-      const today = new Date();
-      invDateEl.value = today.toISOString().slice(0,7) === key ? today.toISOString().slice(0,10) : key + '-01';
-    }
   }
 
   function setActivePeriod(key){
@@ -1221,7 +1296,7 @@ ${itemLines}
     saveState();
     syncZusFieldsFromPeriod();
     renderYearMonthSwitcher();
-    renderEvidence();
+    updateSummary();
     renderYearSummary();
   }
 
@@ -1247,7 +1322,7 @@ ${itemLines}
 
   document.getElementById('exportCsvBtn').addEventListener('click', () => {
     const key = state.activePeriod;
-    if(!key){ alert('Период не выбран.'); return; }
+    if(!key){ alert('Месяц не выбран.'); return; }
     const period = state.periods[key];
     const c = computeForPeriod(key);
     const chorobowa = state.settings.chorobowa ? 'с добровольным страхованием по болезни' : 'без страхования по болезни';
@@ -1266,11 +1341,11 @@ ${itemLines}
     csv += `Налогооблагаемая база;${fmt(c.taxBase)}\n`;
     csv += `Налог к оплате;${c.due}\n`;
 
-    downloadCsv(csv, 'uchet-dohodov-' + key + '.csv');
+    downloadCsv(csv, 'nalog-' + key + '.csv');
   });
 
   document.getElementById('exportYearCsvBtn').addEventListener('click', () => {
-    if(!state.activePeriod){ alert('Период не выбран.'); return; }
+    if(!state.activePeriod){ alert('Месяц не выбран.'); return; }
     const year = state.activePeriod.slice(0,4);
     const keys = Object.keys(state.periods).filter(k => k.slice(0,4) === year).sort();
 
@@ -1290,7 +1365,7 @@ ${itemLines}
     });
     csv += ['Итого', fmt(sumRev), fmt(sumBase), sumTax].join(';') + '\n';
 
-    downloadCsv(csv, 'uchet-dohodov-god-' + year + '.csv');
+    downloadCsv(csv, 'nalog-god-' + year + '.csv');
   });
 
   document.getElementById('exportJsonBtn').addEventListener('click', () => {
@@ -1384,8 +1459,9 @@ ${itemLines}
     syncZusFieldsFromPeriod();
     saveState();
     renderYearMonthSwitcher();
-    renderEvidence();
+    updateSummary();
     renderYearSummary();
+    renderInvoiceList();
     renderServiceDatalist();
     renderBuyerQuickPick();
     renderPaymentInfo();

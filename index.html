@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Учёт ИП на рычалте — счета и KSeF</title>
-<meta name="description" content="Счета, учёт доходов, ZUS и налог по системе ryczałt для ИП (JDG) в Польше. Работает офлайн, данные хранятся локально.">
+<meta name="description" content="Счета, налоги ZUS и PIT-28 (ryczałt) для ИП (JDG) в Польше. Работает офлайн, данные хранятся локально.">
 <meta name="theme-color" content="#14213d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -22,64 +22,102 @@
   <div class="topbar-inner">
     <span class="topbar-brand"><span class="topbar-dot"></span>Учёт ИП</span>
     <nav class="topbar-tabs" id="topbarTabs">
-      <button type="button" class="tab-btn active" data-tab="praca">Работа</button>
+      <button type="button" class="tab-btn active" data-tab="schety">Счета</button>
+      <button type="button" class="tab-btn" data-tab="nalogi">Налоги</button>
       <button type="button" class="tab-btn" data-tab="ustawienia">Настройки</button>
     </nav>
     <span class="save-status" id="saveStatus"><span class="save-dot"></span><span id="saveStatusText">сохранено</span></span>
-  </div>
-  <div class="topbar-subnav" id="topbarSubnav">
-    <a href="#step-period">Период</a>
-    <a href="#step-invoice">Счёт</a>
-    <a href="#step-evidence">Учёт доходов</a>
-    <a href="#step-zus">ZUS</a>
-    <a href="#step-result">Результат</a>
-    <a href="#step-declaration">Декларация</a>
   </div>
 </div>
 
 <div class="app">
 
+  <!-- ============ TAB: СЧЕТА ============ -->
+  <div class="tab-panel" id="tabSchety">
+
   <div class="app-header">
-    <h1>Учёт ИП (JDG) на рычалте</h1>
-    <p>Выставляйте счета, ведите учёт доходов по месяцам и годам, считайте ZUS и налог — всё сохраняется автоматически в этом браузере и работает офлайн.</p>
+    <h1>Счета</h1>
+    <p>Все выставленные и загруженные счета в одном списке. Выставляйте новые, дублируйте старые, фильтруйте и смотрите итоги.</p>
   </div>
 
-  <!-- ============ TAB: PRACA ============ -->
-  <div class="tab-panel" id="tabPraca">
-
-  <div class="notice-box">
-    <strong>Важно про KSeF:</strong> приложение генерирует XML-файл вспомогательно, по образцу реального экспорта из
-    Aplikacji Podatnika KSeF — но у меня нет доступа к официальной валидационной схеме FA(3) (несколько тысяч строк XSD),
-    поэтому я не могу гарантировать, что каждый случай будет принят без замечаний. Настоящую отправку в KSeF делайте через
-    бесплатное <strong>Aplikację Podatnika KSeF</strong> (ksef.podatki.gov.pl) либо <strong>e-mikrofirmę</strong> в
-    e-Urzędzie Skarbowym. Здесь вы получите готовый предпросмотр счёта и XML-файл, который можно проверить или переписать за секунды.
-  </div>
-
-  <div class="notice-box" id="zusReminderBox" style="display:none;"></div>
-
-  <!-- STEP 1: period switcher -->
-  <div class="card" id="step-period">
-    <div class="step-head"><span class="step-num">1</span><h2>Период</h2></div>
-    <p class="step-desc">У каждого месяца свой учёт доходов, ZUS и результат налога — доход нарастающим итогом считается сам. Переключайтесь между годами стрелками и выбирайте месяц ниже.</p>
-
-    <div class="year-switcher">
-      <button type="button" class="year-nav-btn" id="yearPrevBtn" aria-label="Предыдущий год">‹</button>
-      <span class="year-label" id="yearLabel">2026</span>
-      <button type="button" class="year-nav-btn" id="yearNextBtn" aria-label="Следующий год">›</button>
+  <div class="stats-row">
+    <div class="stat-tile">
+      <span class="stat-value" id="statYear">0,00 zł</span>
+      <span class="stat-label" id="statYearLabel">Доход с начала года</span>
     </div>
-    <div class="month-grid" id="monthGrid"></div>
-
-    <div class="field" style="max-width:260px; margin-top:16px;">
-      <label for="openingByYearInput">Доход до начала работы с приложением (за этот год)</label>
-      <input type="number" id="openingByYearInput" value="0" step="0.01" min="0">
-      <span class="unit-note">zł — заполните, если начали вести учёт не с января</span>
+    <div class="stat-tile">
+      <span class="stat-value" id="statFiltered">0,00 zł</span>
+      <span class="stat-label">Доход по фильтру</span>
+    </div>
+    <div class="stat-tile">
+      <span class="stat-value" id="statCount">0</span>
+      <span class="stat-label">Счетов по фильтру</span>
     </div>
   </div>
 
-  <!-- STEP 2: issue invoice -->
-  <div class="card" id="step-invoice">
-    <div class="step-head"><span class="step-num">2</span><h2>Выставить счёт</h2></div>
-    <p class="step-desc">Введите данные покупателя и позиции. Счёт попадёт в учёт доходов того месяца, на который приходится дата выставления. Покупателя и услуги из прошлых счетов можно выбрать из списка ниже.</p>
+  <div class="card">
+    <div class="filters-row">
+      <div class="field">
+        <label for="filterYear">Год</label>
+        <select id="filterYear"></select>
+      </div>
+      <div class="field">
+        <label for="filterMonth">Месяц</label>
+        <select id="filterMonth">
+          <option value="">Все месяцы</option>
+          <option value="01">Январь</option><option value="02">Февраль</option><option value="03">Март</option>
+          <option value="04">Апрель</option><option value="05">Май</option><option value="06">Июнь</option>
+          <option value="07">Июль</option><option value="08">Август</option><option value="09">Сентябрь</option>
+          <option value="10">Октябрь</option><option value="11">Ноябрь</option><option value="12">Декабрь</option>
+        </select>
+      </div>
+      <div class="field" style="flex:1; min-width:180px;">
+        <label for="filterSearch">Поиск</label>
+        <input type="text" id="filterSearch" placeholder="Покупатель или номер счёта">
+      </div>
+      <button class="action primary" id="newInvoiceBtn" style="align-self:flex-end;">+ Новый счёт</button>
+    </div>
+
+    <div class="table-wrap" style="margin-left:0;">
+      <table>
+        <thead>
+          <tr>
+            <th>Месяц</th><th>Дата</th><th>№ счёта</th><th>Покупатель</th>
+            <th class="num">Нетто</th><th class="num">VAT</th><th class="num">Брутто</th>
+            <th class="num">База (PLN)</th><th>Ставка</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="tbody">
+          <tr class="empty-row"><td colspan="10">Пока нет ни одного счёта.</td></tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="4">Итого по фильтру</td>
+            <td class="num" id="sumNet">0,00</td>
+            <td class="num" id="sumVat">0,00</td>
+            <td class="num" id="sumGross">0,00</td>
+            <td class="num" id="sumBasis">0,00</td>
+            <td colspan="2"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <div class="manual-add"><button class="link-btn" id="toggleImportBtn">+ загрузить XML из KSeF или добавить запись вручную</button></div>
+    <div id="importPanel" style="display:none; margin-top:10px;">
+      <div class="dropzone" id="dropzone" style="margin-left:0;">
+        <p><strong>Перетащите XML-файлы сюда</strong> или нажмите, чтобы выбрать (можно несколько сразу)</p>
+        <input type="file" id="fileInput" accept=".xml,text/xml,application/xml" multiple>
+      </div>
+      <div class="manual-add"><button class="link-btn" id="manualAddBtn">+ добавить запись вручную (за сегодня)</button></div>
+      <div id="parseErrors"></div>
+    </div>
+  </div>
+
+  <!-- Invoice creation form -->
+  <div class="card" id="invoiceFormCard" style="display:none;">
+    <div class="step-head"><h2>Новый счёт</h2></div>
+    <p class="step-desc" style="margin-left:0;">Счёт попадёт в список того месяца, на который приходится дата выставления. Покупателя и услуги из прошлых счетов можно выбрать из списка ниже.</p>
 
     <div class="field-grid">
       <div class="field"><label for="invNumber">Номер счёта</label><input type="text" id="invNumber"></div>
@@ -96,7 +134,7 @@
       <div class="field" id="invKursField" style="display:none;">
         <label for="invKurs">Курс валюты (к PLN, по курсу НБП)</label>
         <input type="number" id="invKurs" step="0.0001" min="0">
-        <span class="unit-note">нужен, чтобы записать доход в PLN в учёт</span>
+        <span class="unit-note">нужен, чтобы записать доход в PLN</span>
       </div>
     </div>
 
@@ -159,53 +197,51 @@
 
     <div class="actions" style="margin-left:0; margin-top:18px;">
       <button class="action primary" id="issueInvoiceBtn">Выставить счёт</button>
+      <button class="action" id="cancelInvoiceBtn">Отмена</button>
     </div>
 
     <div id="invoicePreview"></div>
   </div>
 
-  <!-- STEP 3: ewidencja -->
-  <div class="card" id="step-evidence">
-    <div class="step-head"><span class="step-num">3</span><h2>Учёт доходов — <span id="evTitlePeriod">период не выбран</span></h2></div>
-    <p class="step-desc">Счета из шага 2 попадают сюда автоматически. Можно также загрузить существующие XML-файлы из KSeF или добавить запись вручную. Колонки «База» и «Ставка» всегда можно поправить. Кнопка «Дублировать» рядом с выставленным счётом заполняет форму в шаге 2 теми же данными — удобно, чтобы выставить похожий счёт в следующем месяце.</p>
+  <div class="notice-box">
+    <strong>Важно про KSeF:</strong> приложение генерирует XML-файл вспомогательно, по образцу реального экспорта из
+    Aplikacji Podatnika KSeF — но у меня нет доступа к официальной валидационной схеме FA(3), поэтому не могу
+    гарантировать, что каждый случай будет принят без замечаний. Настоящую отправку в KSeF делайте через бесплатное
+    Aplikację Podatnika KSeF (ksef.podatki.gov.pl) либо e-mikrofirmę в e-Urzędzie Skarbowym.
+  </div>
 
-    <div class="dropzone" id="dropzone">
-      <p><strong>Перетащите XML-файлы сюда</strong> или нажмите, чтобы выбрать (можно несколько сразу)</p>
-      <input type="file" id="fileInput" accept=".xml,text/xml,application/xml" multiple>
+  </div>
+  <!-- ============ /TAB: СЧЕТА ============ -->
+
+  <!-- ============ TAB: НАЛОГИ ============ -->
+  <div class="tab-panel" id="tabNalogi" hidden>
+
+  <div class="app-header">
+    <h1>Налоги</h1>
+    <p>ZUS и PIT-28 (ryczałt) считаются отдельно для каждого месяца. Выберите месяц ниже.</p>
+  </div>
+
+  <div class="notice-box" id="zusReminderBox" style="display:none;"></div>
+
+  <div class="card">
+    <div class="step-head"><h2>Период</h2></div>
+    <div class="year-switcher">
+      <button type="button" class="year-nav-btn" id="yearPrevBtn" aria-label="Предыдущий год">‹</button>
+      <span class="year-label" id="yearLabel">2026</span>
+      <button type="button" class="year-nav-btn" id="yearNextBtn" aria-label="Следующий год">›</button>
     </div>
-    <div class="manual-add"><button class="link-btn" id="manualAddBtn">+ добавить запись вручную</button></div>
-    <div id="parseErrors"></div>
-
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>№</th><th>Дата</th><th>№ счёта</th><th>Покупатель</th>
-            <th class="num">Нетто</th><th class="num">VAT</th><th class="num">Брутто</th>
-            <th class="num">База (PLN)</th><th>Ставка</th><th></th>
-          </tr>
-        </thead>
-        <tbody id="tbody">
-          <tr class="empty-row"><td colspan="10">Выберите или создайте период в шаге 1.</td></tr>
-        </tbody>
-        <tfoot>
-          <tr>
-            <td colspan="4">Итого</td>
-            <td class="num" id="sumNet">0,00</td>
-            <td class="num" id="sumVat">0,00</td>
-            <td class="num" id="sumGross">0,00</td>
-            <td class="num" id="sumBasis">0,00</td>
-            <td colspan="2"></td>
-          </tr>
-        </tfoot>
-      </table>
+    <div class="month-grid" id="monthGrid"></div>
+    <div class="field" style="max-width:260px; margin-top:16px;">
+      <label for="openingByYearInput">Доход до начала работы с приложением (за этот год)</label>
+      <input type="number" id="openingByYearInput" value="0" step="0.01" min="0">
+      <span class="unit-note">zł — заполните, если начали вести учёт не с января</span>
     </div>
   </div>
 
-  <!-- STEP 4: ZUS -->
-  <div class="card" id="step-zus">
-    <div class="step-head"><span class="step-num">4</span><h2>ZUS за этот период</h2></div>
-    <p class="step-desc">Фазу ZUS вы настраиваете один раз в разделе <strong>Настройки</strong> (или автоматически на основе даты открытия ИП) — здесь виден только результат за этот месяц. Меняйте что-то ниже, только если именно этот месяц действительно отличается от правила.</p>
+  <!-- ZUS -->
+  <div class="card">
+    <div class="step-head"><h2>ZUS за <span id="zusMonthLabel">— месяц не выбран —</span></h2></div>
+    <p class="step-desc" style="margin-left:0;">Фазу ZUS вы настраиваете один раз во вкладке «Настройки» (или автоматически по дате открытия ИП) — здесь виден результат за месяц и данные для декларации ZUS DRA.</p>
 
     <div class="hint-box" id="zusPhaseHint" style="margin-left:0;"></div>
 
@@ -222,30 +258,44 @@
       </div>
     </div>
 
-    <p class="step-desc" style="margin-left:0; margin-top:16px;"><strong>Разбивка социального взноса (расчёт автоматический, справочно)</strong></p>
-    <div class="table-wrap" style="margin-left:0;" id="socialBreakdownWrap">
+    <p class="step-desc" style="margin-left:0; margin-top:16px;"><strong>Разбивка социального взноса</strong></p>
+    <div class="table-wrap" style="margin-left:0;">
       <table>
-        <thead><tr><th>Пенсионный</th><th>По инвалидности</th><th>От несчастных случаев</th><th>По болезни</th><th>Фонд труда</th><th>Итого</th></tr></thead>
+        <thead><tr><th>Пенсионный</th><th>По инвалидности</th><th>От несч. случаев</th><th>По болезни</th><th>Фонд труда</th><th>Итого</th></tr></thead>
         <tbody id="socialBreakdownBody"><tr><td colspan="6">—</td></tr></tbody>
       </table>
     </div>
 
     <div class="field-grid" style="margin-top:14px;">
       <div class="field">
-        <label for="socialInput">Социальный взнос за этот период (вычитается из налога)</label>
+        <label for="socialInput">Социальный взнос за этот период</label>
         <input type="number" id="socialInput" value="0" step="0.01" min="0">
-        <span class="unit-note">по умолчанию считается автоматически — если измените вручную, запомним это только для этого месяца.
+        <span class="unit-note">по умолчанию считается автоматически.
           <button type="button" class="link-btn" id="socialResetBtn" style="padding:0;">пересчитать автоматически</button></span>
       </div>
     </div>
 
     <div class="hint-box" id="cumulativeHint"></div>
+
+    <p class="step-desc" style="margin-left:0; margin-top:18px;"><strong>Декларация ZUS DRA</strong> — подаётся каждый месяц через PUE/eZUS, срок до 20-го числа следующего месяца</p>
+    <div class="hint-box" id="declKodTytulu" style="margin-left:0;"></div>
+    <div class="table-wrap" style="margin-left:0; margin-top:10px;">
+      <table>
+        <thead><tr><th>Взнос</th><th class="num">База начисления</th><th class="num">Сумма</th></tr></thead>
+        <tbody id="declBody"></tbody>
+        <tfoot><tr><td>Итого к оплате</td><td></td><td class="num" id="declTotal">0,00</td></tr></tfoot>
+      </table>
+    </div>
+    <div class="hint-box" id="payZusBox" style="margin-left:0; margin-top:14px;"></div>
+
+    <p class="step-desc" style="margin-left:0; margin-top:18px;"><strong>Годовой перерасчёт взноса на медстрахование</strong> — срок до 20 мая</p>
+    <div class="hint-box" id="declAnnualHealth" style="margin-left:0;"></div>
   </div>
 
-  <!-- STEP 5: result -->
-  <div class="card" id="step-result">
-    <div class="step-head"><span class="step-num">5</span><h2>Результат за этот период</h2></div>
-    <p class="step-desc">Налог считается отдельно для каждой ставки ryczałt, использованной в таблице счетов, пропорционально доле в доходе.</p>
+  <!-- PIT -->
+  <div class="card">
+    <div class="step-head"><h2>Налог PIT-28 (ryczałt) за <span id="pitMonthLabel">— месяц не выбран —</span></h2></div>
+    <p class="step-desc" style="margin-left:0;">Считается отдельно для каждой ставки ryczałt, использованной в счетах этого месяца, пропорционально доле в доходе.</p>
 
     <ul class="result-list">
       <li><span>Количество счетов</span><span class="v" id="calcCount">0</span></li>
@@ -286,45 +336,22 @@
     </div>
   </div>
 
-  <!-- STEP 6: ZUS declaration helper -->
-  <div class="card" id="step-declaration">
-    <div class="step-head"><span class="step-num">6</span><h2>Декларация ZUS — <span id="declTitlePeriod">период не выбран</span></h2></div>
-    <p class="step-desc">С 2022 г. декларацию ZUS DRA подают каждый месяц (электронно через PUE/eZUS), даже если суммы не меняются. Ниже — готовые данные для переноса, срок: до 20-го числа следующего месяца.</p>
-
-    <div class="hint-box" id="declKodTytulu" style="margin-left:0;"></div>
-
-    <div class="table-wrap" style="margin-left:0; margin-top:14px;">
-      <table>
-        <thead><tr><th>Взнос</th><th class="num">База начисления</th><th class="num">Сумма</th></tr></thead>
-        <tbody id="declBody"></tbody>
-        <tfoot><tr><td>Итого к оплате</td><td></td><td class="num" id="declTotal">0,00</td></tr></tfoot>
-      </table>
-    </div>
-
-    <div class="hint-box" id="payZusBox" style="margin-left:0; margin-top:14px;"></div>
-
-    <p class="step-desc" style="margin-left:0; margin-top:22px;"><strong>Годовой перерасчёт взноса на медстрахование (ZUS DRA, срок до 20 мая)</strong></p>
-    <div class="hint-box" id="declAnnualHealth" style="margin-left:0;"></div>
-
-    <div class="notice-box" style="margin-top:16px;">
-      <strong>Важно:</strong> это вспомогательный расчёт, не официальная форма — у меня нет доступа к текущим настройкам вашего
-      аккаунта в ZUS (актуальный код титула страхования, льготы, уже использованные месяцы льгот, лимит 36/60 месяцев для
-      Małego ZUS Plus, лимит 24 месяцев для льготного ZUS, фактическая ставка взноса от несчастных случаев по вашему PKD).
-      Подавайте и проверяйте декларацию через <strong>PUE/eZUS</strong> (www.zus.pl) — там же увидите точные официальные суммы.
-    </div>
   </div>
+  <!-- ============ /TAB: НАЛОГИ ============ -->
 
-  </div>
-  <!-- ============ /TAB: PRACA ============ -->
-
-  <!-- ============ TAB: USTAWIENIA ============ -->
+  <!-- ============ TAB: НАСТРОЙКИ ============ -->
   <div class="tab-panel" id="tabUstawienia" hidden>
+
+  <div class="app-header">
+    <h1>Настройки</h1>
+    <p>Вся справочная информация и параметры — заполняете один раз, дальше приложение считает само.</p>
+  </div>
 
   <div class="hint-box" style="margin-left:0; margin-bottom:20px;">
     <strong>Как работает сохранение данных:</strong> всё, что вы здесь введёте, сохраняется автоматически в памяти этого
-    браузера (localStorage) на этом устройстве — заполните данные один раз, при следующем визите по этому же адресу они
-    уже будут готовы. Сохранение работает без интернета. Чтобы иметь доступ к тем же данным на другом устройстве или
-    сделать резервную копию, регулярно делайте «Копию JSON» в разделе ниже.
+    браузера (localStorage) на этом устройстве — заполните данные один раз, при следующем визите они уже будут готовы.
+    Работает без интернета. Чтобы иметь доступ к тем же данным на другом устройстве или сделать резервную копию,
+    регулярно делайте «Копию JSON» в разделе ниже.
   </div>
 
   <!-- Company profile -->
@@ -348,7 +375,7 @@
   <!-- ZUS phase: set once -->
   <div class="card settings-card">
     <div class="step-head"><h2>Фаза ZUS — настройте один раз</h2></div>
-    <p class="step-desc" style="margin-left:0;">Это единственное место, где вы решаете про фазу ZUS. В автоматическом режиме каждый новый месяц сам получит нужную фазу на основе даты открытия ИП (выше) — ничего не нужно нажимать в разделе «Работа».</p>
+    <p class="step-desc" style="margin-left:0;">Это единственное место, где вы решаете про фазу ZUS. В автоматическом режиме каждый новый месяц сам получит нужную фазу на основе даты открытия ИП (выше).</p>
     <div class="field-grid">
       <div class="field">
         <label for="zusPhaseModeSelect">Режим фазы ZUS</label>
@@ -386,8 +413,7 @@
   <div class="card settings-card">
     <div class="step-head"><h2>Куда платить ZUS и налог</h2></div>
     <p class="step-desc" style="margin-left:0;">Уже несколько лет действуют два отдельных <strong>индивидуальных</strong> номера счетов — один для ZUS, другой для налоговой.
-      Их нельзя вычислить самостоятельно (их присваивают ZUS/Минфин), поэтому впишите их сюда один раз, когда найдёте —
-      дальше будем подсказывать при каждой декларации.</p>
+      Их нельзя вычислить самостоятельно (их присваивают ZUS/Минфин), поэтому впишите их сюда один раз, когда найдёте.</p>
     <div class="field-grid">
       <div class="field">
         <label for="sellerZusAccount">Номер расчётного счёта ZUS (NRS)</label>
@@ -473,34 +499,32 @@
     </div>
   </div>
 
-  </div>
-  <!-- ============ /TAB: USTAWIENIA ============ -->
-
   <footer class="note">
     <strong>Чего это приложение НЕ делает:</strong> не отправляет счета в KSeF (для этого нужен ваш вход — Profil Zaufany,
     квалифицированная подпись или токен — через официальное Aplikację Podatnika KSeF либо e-mikrofirmę) и не подаёт
     декларации PIT-28 или ZUS DRA электронно (их подают через e-Urząd Skarbowy / PUE-eZUS, с собственной
-    аутентификацией — Profil Zaufany или квалифицированная подпись). Этот калькулятор считает суммы и ведёт учёт,
-    чтобы у вас были готовые данные для внесения в те системы.<br><br>
+    аутентификацией). Этот калькулятор считает суммы и ведёт учёт, чтобы у вас были готовые данные для внесения в те системы.<br><br>
     <strong>Формула налога:</strong> Налогооблагаемая база = сумма базы дохода &minus; социальный взнос (100%, только в
-    льготной или полной фазе ZUS) &minus; 50% уплаченного взноса на медстрахование. Если в таблице используется несколько
-    ставок ryczałt, вычеты делятся пропорционально доле каждой ставки в доходе, а налог считается отдельно для каждой и
+    льготной или полной фазе ZUS) &minus; 50% уплаченного взноса на медстрахование. Если используется несколько ставок
+    ryczałt, вычеты делятся пропорционально доле каждой ставки в доходе, а налог считается отдельно для каждой и
     суммируется. Доход нарастающим итогом для порога взноса на медстрахование считается автоматически из суммы всех
     месяцев года, сохранённых в приложении, плюс возможный доход до начала работы с ним.<br><br>
     <strong>Значения по умолчанию (законодательство 2026 г.):</strong> взнос на медстрахование ryczałt — 498,35 zł / 830,58 zł
     / 1495,04 zł (пороги 60 000 zł и 300 000 zł, 9% от соответственно 60%/100%/180% средней зарплаты за IV кв. 2025 =
     9228,64 zł); льгота на старт — 6 полных календарных месяцев без социальных взносов (только медицинский), а если ИП
-    открыт не с 1-го числа месяца — 7 месяцев, так как неполный первый месяц не засчитывается как «полный»; льготный ZUS —
-    24 месяца, база 30% минимальной зарплаты (1441,80 zł); Малый ZUS Plus — до 36 месяцев из каждых 60, база считается от
-    дохода за прошлый год (для ryczałt: 50% дохода), доступен при доходе за прошлый год до 120 000 zł; полный ZUS — база
-    60% прогнозируемой средней зарплаты (5652,60 zł). Социальные взносы считаются по стандартным ставкам: пенсионный
-    19,52%, по инвалидности 8%, от несчастных случаев 1,67% (зависит от PKD), по болезни добровольно 2,45%, Фонд труда
-    2,45% (когда база ≥ минимальной зарплаты). Ваша ситуация может отличаться — все суммы и ставки можно изменить вручную
-    в Настройках. Расчёт носит вспомогательный характер и не заменяет проверку бухгалтером.<br><br>
+    открыт не с 1-го числа месяца — 7 месяцев; льготный ZUS — 24 месяца, база 30% минимальной зарплаты (1441,80 zł);
+    Малый ZUS Plus — до 36 месяцев из каждых 60, база считается от дохода за прошлый год (для ryczałt: 50% дохода),
+    доступен при доходе за прошлый год до 120 000 zł; полный ZUS — база 60% прогнозируемой средней зарплаты (5652,60 zł).
+    Социальные взносы считаются по стандартным ставкам: пенсионный 19,52%, по инвалидности 8%, от несчастных случаев
+    1,67% (зависит от PKD), по болезни добровольно 2,45%, Фонд труда 2,45% (когда база ≥ минимальной зарплаты). Ваша
+    ситуация может отличаться — все суммы и ставки можно изменить вручную выше. Расчёт носит вспомогательный характер
+    и не заменяет проверку бухгалтером.<br><br>
     <strong>Сохранение данных:</strong> всё сохраняется автоматически в памяти браузера (localStorage) на этом устройстве.
-    Регулярно делайте копию JSON (вкладка Настройки), чтобы не потерять данные при очистке браузера и иметь возможность
-    работать на другом устройстве.
+    Регулярно делайте копию JSON, чтобы не потерять данные при очистке браузера и иметь возможность работать на другом устройстве.
   </footer>
+
+  </div>
+  <!-- ============ /TAB: НАСТРОЙКИ ============ -->
 
 </div>
 
