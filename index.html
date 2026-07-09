@@ -412,6 +412,7 @@
     <a class="settings-nav-link cat-phase" href="#settings-phase"><span class="dot"></span>Фаза ZUS</a>
     <a class="settings-nav-link cat-payment" href="#settings-payment"><span class="dot"></span>Куда платить</a>
     <a class="settings-nav-link cat-params" href="#settings-params"><span class="dot"></span>Параметры</a>
+    <a class="settings-nav-link cat-data" href="#settings-install"><span class="dot"></span>Установить приложение</a>
     <a class="settings-nav-link cat-data" href="#settings-data"><span class="dot"></span>Данные приложения</a>
   </nav>
   <div class="settings-content">
@@ -546,6 +547,21 @@
         <span class="unit-note">zł — база для полного ZUS и верхнего лимита Małego ZUS Plus</span>
       </div>
     </div>
+  </div>
+
+  <!-- Install as app -->
+  <div class="card" data-cat="data" id="settings-install">
+    <div class="step-head"><span class="cat-icon cat-data"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5.5" y="2.5" width="9" height="15" rx="1.8"/><path d="M9 15.5h2"/></svg></span><h2>Установить как приложение</h2></div>
+    <p class="step-desc" style="margin-left:0;">Приложение можно установить на телефон или компьютер — появится иконка, оно будет работать без интернета, а данные будут храниться надёжнее (браузер не удалит их при очистке кэша).</p>
+    <div class="actions" style="margin-left:0; margin-top:0;">
+      <button class="action primary" id="installAppBtn" style="display:none;">Установить приложение</button>
+    </div>
+    <ul class="result-list" style="margin-top:8px;">
+      <li><span><strong>iPhone / iPad (Safari)</strong></span><span class="v" style="font-weight:400; text-align:right;">кнопка «Поделиться» → «На экран “Домой”»</span></li>
+      <li><span><strong>Android (Chrome)</strong></span><span class="v" style="font-weight:400; text-align:right;">меню ⋮ → «Установить приложение»</span></li>
+      <li><span><strong>Компьютер (Chrome/Edge)</strong></span><span class="v" style="font-weight:400; text-align:right;">значок установки в адресной строке</span></li>
+    </ul>
+    <div class="hint-box" id="storagePersistHint" style="margin-left:0; margin-top:14px;"></div>
   </div>
 
   <!-- Data management -->

@@ -1783,6 +1783,46 @@ ${itemLines}
 
   initPage();
 
+  // ---------- установка как приложение и защита данных ----------
+  function renderStorageHint(){
+    const el = document.getElementById('storagePersistHint');
+    if(!el) return;
+    const installed = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+    const check = (navigator.storage && navigator.storage.persisted)
+      ? navigator.storage.persisted() : Promise.resolve(false);
+    check.then(persisted => {
+      if(installed){
+        el.innerHTML = '<strong>Приложение установлено.</strong> Данные хранятся на этом устройстве и не удаляются при очистке кэша браузера. Не забывайте иногда делать копию JSON — на случай потери устройства.';
+      } else if(persisted){
+        el.innerHTML = 'Браузер подтвердил <strong>надёжное хранение</strong>: данные не будут удалены автоматически. Для полного удобства установите приложение на домашний экран.';
+      } else {
+        el.innerHTML = 'Сейчас данные хранятся в обычной памяти браузера — при долгом простое или очистке кэша браузер <strong>может их удалить</strong>. Установите приложение (см. выше) и/или регулярно делайте копию JSON.';
+      }
+    }).catch(() => {});
+  }
+
+  if(navigator.storage && navigator.storage.persist){
+    navigator.storage.persist().then(renderStorageHint, renderStorageHint);
+  } else {
+    renderStorageHint();
+  }
+
+  let deferredInstallPrompt = null;
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    const btn = document.getElementById('installAppBtn');
+    if(btn) btn.style.display = '';
+  });
+  document.getElementById('installAppBtn').addEventListener('click', async () => {
+    if(!deferredInstallPrompt) return;
+    deferredInstallPrompt.prompt();
+    try{ await deferredInstallPrompt.userChoice; }catch(e){}
+    deferredInstallPrompt = null;
+    document.getElementById('installAppBtn').style.display = 'none';
+    renderStorageHint();
+  });
+
   if('serviceWorker' in navigator && location.protocol !== 'file:'){
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('service-worker.js').catch(() => {});

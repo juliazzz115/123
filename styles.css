@@ -360,7 +360,7 @@ footer.note{
 .settings-nav-link.cat-data .dot{ background: var(--c-slate); }
 
 .settings-content > .card:last-child{ margin-bottom:0; }
-#settings-profile, #settings-phase, #settings-payment, #settings-params, #settings-data{
+#settings-profile, #settings-phase, #settings-payment, #settings-params, #settings-install, #settings-data{
   scroll-margin-top: 74px;
 }
 
