@@ -112,12 +112,12 @@
     </div>
 
     <div class="table-wrap" style="margin-left:0;">
-      <table>
+      <table id="invoiceTable">
         <thead>
           <tr>
-            <th>Месяц</th><th>Дата</th><th>№ фактуры</th><th>Покупатель</th>
-            <th class="num">Нетто</th><th class="num">VAT</th><th class="num">Брутто</th>
-            <th class="num">База (PLN)</th><th>Ставка</th><th></th>
+            <th class="hm">Месяц</th><th>Дата</th><th class="hm">№ фактуры</th><th>Покупатель</th>
+            <th class="num hm">Нетто</th><th class="num hm">VAT</th><th class="num hm">Брутто</th>
+            <th class="num">База (PLN)</th><th class="hm">Ставка</th><th></th>
           </tr>
         </thead>
         <tbody id="tbody">
@@ -215,7 +215,7 @@
 
     <p class="step-desc" style="margin-left:0; margin-top:18px;"><strong>Позиции фактуры</strong> — описание подсказывается из прошлых фактур</p>
     <div class="table-wrap" style="margin-left:0;">
-      <table>
+      <table id="draftItemsTable">
         <thead>
           <tr><th>Описание</th><th class="num">Кол-во</th><th>Ед.</th><th class="num">Цена нетто</th><th>VAT</th><th class="num">Нетто</th><th class="num">VAT</th><th class="num">Брутто</th><th></th></tr>
         </thead>

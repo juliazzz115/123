@@ -113,13 +113,14 @@ html,body{
   font-size: 12.5px; color: #37425c; line-height:1.5;
 }
 
-.invoice-preview{
+.invoice-preview, #invoicePreview:not(:empty){
   margin: 20px 0 0; background:#f4f6fb; border-radius: var(--radius-sm); padding: 16px 18px; font-size: 13.5px;
 }
-.invoice-preview h3{ margin: 0 0 10px; font-size: 14px; }
-.invoice-preview pre{
+.invoice-preview h3, #invoicePreview h3{ margin: 0 0 10px; font-size: 14px; }
+.invoice-preview pre, #invoicePreview pre{
   white-space: pre-wrap; word-break: break-word; font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
   font-size: 12px; background:#fff; border:1px solid var(--line); border-radius:8px; padding:10px 12px; margin: 10px 0;
+  overflow-x: auto;
 }
 
 /* ---------------- cards ---------------- */
@@ -209,7 +210,9 @@ html,body{
 
 /* ---------------- table ---------------- */
 .table-wrap{ margin: 16px 0 0; overflow-x:auto; border: 1px solid var(--line); border-radius: var(--radius-sm); }
-table{ width:100%; border-collapse: collapse; font-size: 13px; min-width: 760px; }
+table{ width:100%; border-collapse: collapse; font-size: 13px; }
+#invoiceTable{ min-width: 760px; }
+#draftItemsTable{ min-width: 680px; }
 thead th{
   background: #f4f6fb; color: var(--muted); text-transform: uppercase; letter-spacing: .04em;
   font-size: 10.5px; font-weight:700; padding: 10px 8px; text-align:left; white-space:nowrap;
@@ -240,16 +243,16 @@ td[contenteditable]:focus{ outline: 2px solid var(--blue); outline-offset: -2px;
 .row-actions{ display:flex; gap:4px; align-items:center; }
 .empty-row td{ text-align:center; color: var(--muted); font-style: italic; padding: 26px; }
 tfoot td{ font-weight:700; background:#f4f6fb; border-top: 2px solid var(--line); }
-#yearSummaryTable{ min-width: 480px; }
 
 /* ---------------- fields ---------------- */
 .field-grid{ display:grid; grid-template-columns: repeat(2,1fr); gap: 14px 20px; }
 @media (max-width: 620px){ .field-grid{ grid-template-columns: 1fr; } }
-.field{ display:flex; flex-direction:column; gap:5px; }
+.field{ display:flex; flex-direction:column; gap:5px; min-width:0; }
 .field label{ font-size: 12.5px; color: var(--muted); font-weight:650; }
 .field input, .field select{
   border:1px solid var(--line); border-radius: 9px; padding: 9px 10px; font-size: 14px;
   background:#fff; color: var(--ink);
+  width: 100%; min-width: 0; max-width: 100%;
 }
 .field input:focus, .field select:focus{ outline: 2px solid var(--blue); outline-offset:-1px; }
 .field .unit-note{ font-size: 11.5px; color: var(--muted-soft); }
@@ -335,6 +338,7 @@ footer.note{
 .settings-layout{
   display:grid; grid-template-columns: 216px 1fr; gap: 26px; align-items:start;
 }
+.settings-layout > *{ min-width: 0; }
 @media (max-width: 880px){ .settings-layout{ grid-template-columns: 1fr; } }
 
 .settings-nav{
@@ -362,6 +366,57 @@ footer.note{
 .settings-content > .card:last-child{ margin-bottom:0; }
 #settings-profile, #settings-phase, #settings-payment, #settings-params, #settings-install, #settings-data{
   scroll-margin-top: 74px;
+}
+
+/* ---------------- mobile ---------------- */
+@media (max-width: 640px){
+  body{ overflow-x: hidden; -webkit-tap-highlight-color: transparent; }
+  .app{ padding: 16px 12px 70px; }
+  .topbar-inner{ padding: 0 10px; gap: 8px; height: 50px; }
+  .tab-btn{ padding: 7px 10px; font-size: 12.5px; }
+  #saveStatusText{ display:none; }
+
+  .card{ padding: 18px 14px; border-radius: 14px; }
+  .app-header{ margin-bottom: 18px; gap: 12px; }
+  .app-header-icon{ width: 40px; height: 40px; border-radius: 12px; }
+  .app-header h1{ font-size: 21px; }
+  .app-header p{ font-size: 13.5px; }
+
+  .stat-tile{ padding: 13px 14px; }
+  .stat-tile .stat-value{ font-size: 19px; }
+  .stats-row{ gap: 10px; margin-bottom: 16px; }
+
+  /* invoice table: only the essential columns, no horizontal drag */
+  #invoiceTable{ min-width: 0; }
+  #invoiceTable .hm{ display: none; }
+  #invoiceTable tfoot{ display: none; }
+  #invoiceTable td.editable-cell input{ width: 78px; }
+
+  .filters-row{ gap: 10px; }
+  .filters-row .field{ min-width: calc(50% - 5px); flex: 1; }
+  .filters-row .action{ width: 100%; }
+
+  /* prevent iOS zoom-on-focus */
+  .field input, .field select{ font-size: 16px; }
+
+  .home-month-bar{ padding: 14px 14px; justify-content: center; }
+  .home-month-nav{ width: 100%; justify-content: center; }
+  .home-phase-line{ width: 100%; text-align: center; }
+  .home-step{ padding: 16px 14px; gap: 12px; }
+  .home-step .step-circle{ width: 30px; height: 30px; font-size: 13.5px; }
+  .home-step-title{ font-size: 14.5px; }
+  .home-sum{ font-size: 25px; }
+  .home-deadline{ display: inline-block; margin: 4px 0 0; vertical-align: baseline; }
+  .home-pay-line{ font-size: 12px; }
+  .home-acc{ font-size: 12px; }
+
+  .month-grid{ gap: 7px; }
+  .month-cell{ padding: 9px 8px; }
+
+  .result-list li{ flex-wrap: wrap; }
+  .total-box{ padding: 16px 18px; }
+  .total-box .amount{ font-size: 27px; }
+  .actions .action{ flex: 1 1 auto; text-align: center; }
 }
 
 /* ---------------- home tab ---------------- */

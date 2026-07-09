@@ -917,15 +917,15 @@ ${itemLines}
       entries.forEach(({row, periodKey}) => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
-          <td>${monthLabel(periodKey)}</td>
+          <td class="hm">${monthLabel(periodKey)}</td>
           <td contenteditable="true" data-field="date" data-period="${periodKey}" data-id="${row.id}">${esc(row.date || '')}</td>
-          <td contenteditable="true" data-field="number" data-period="${periodKey}" data-id="${row.id}">${esc(row.number || '')}</td>
+          <td class="hm" contenteditable="true" data-field="number" data-period="${periodKey}" data-id="${row.id}">${esc(row.number || '')}</td>
           <td contenteditable="true" data-field="buyer" data-period="${periodKey}" data-id="${row.id}">${esc(row.buyer || '')}</td>
-          <td class="num">${fmt(row.net)}</td>
-          <td class="num">${fmt(row.vat)}</td>
-          <td class="num">${fmt(row.gross)}</td>
+          <td class="num hm">${fmt(row.net)}</td>
+          <td class="num hm">${fmt(row.vat)}</td>
+          <td class="num hm">${fmt(row.gross)}</td>
           <td class="num editable-cell"><input type="number" step="0.01" value="${row.basis}" data-period="${periodKey}" data-id="${row.id}" data-role="basis"></td>
-          <td class="rate-cell"><select data-period="${periodKey}" data-id="${row.id}" data-role="rate">${rateOptionsHtml(row.rate)}</select></td>
+          <td class="rate-cell hm"><select data-period="${periodKey}" data-id="${row.id}" data-role="rate">${rateOptionsHtml(row.rate)}</select></td>
           <td><div class="row-actions">${row.source==='issued' && row.snapshot ? `<button class="dup-btn" data-period="${periodKey}" data-id="${row.id}" title="Дублировать — выставить похожий счёт">⧉</button>` : ''}<button class="del-btn" data-period="${periodKey}" data-id="${row.id}" title="Удалить">&times;</button></div></td>
         `;
         tbody.appendChild(tr);
