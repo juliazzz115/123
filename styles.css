@@ -28,12 +28,18 @@ html,body{
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
-.app{ max-width: 1180px; margin: 0 auto; padding: 28px 20px 90px; }
+.app{
+  max-width: 1180px; margin: 0 auto; padding: 28px 20px 90px;
+  padding-left: max(20px, env(safe-area-inset-left, 0px));
+  padding-right: max(20px, env(safe-area-inset-right, 0px));
+  padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px));
+}
 
 /* ---------------- topbar ---------------- */
 .topbar{
   position: sticky; top: 0; z-index: 50; background: var(--result-bg); color: #fff;
   box-shadow: 0 1px 0 rgba(255,255,255,.06), 0 4px 14px rgba(20,33,61,.18);
+  padding-top: env(safe-area-inset-top, 0px);
 }
 .topbar-inner{
   max-width: 1180px; margin: 0 auto; padding: 0 20px; height: 56px;
@@ -371,8 +377,17 @@ footer.note{
 /* ---------------- mobile ---------------- */
 @media (max-width: 640px){
   body{ overflow-x: hidden; -webkit-tap-highlight-color: transparent; }
-  .app{ padding: 16px 12px 70px; }
-  .topbar-inner{ padding: 0 10px; gap: 8px; height: 50px; }
+  .app{
+    padding: 16px 12px 70px;
+    padding-left: max(12px, env(safe-area-inset-left, 0px));
+    padding-right: max(12px, env(safe-area-inset-right, 0px));
+    padding-bottom: calc(70px + env(safe-area-inset-bottom, 0px));
+  }
+  .topbar-inner{
+    padding: 0 10px; gap: 8px; height: 50px;
+    padding-left: max(10px, env(safe-area-inset-left, 0px));
+    padding-right: max(10px, env(safe-area-inset-right, 0px));
+  }
   .tab-btn{ padding: 7px 10px; font-size: 12.5px; }
   #saveStatusText{ display:none; }
 
