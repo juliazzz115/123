@@ -226,8 +226,13 @@
     else tier = cumulative <= s.thresholdLow ? 'low' : (cumulative <= s.thresholdHigh ? 'mid' : 'high');
 
     const healthUsed = tier === 'low' ? s.healthLow : (tier === 'mid' ? s.healthMid : s.healthHigh);
-    const halfHealth = healthUsed / 2;
-    const totalDeduction = social + halfHealth;
+    // В первом календарном месяце деятельности взносы ещё не уплачены (первый платёж —
+    // до 20-го числа следующего месяца), поэтому вычетов из налога этого месяца нет.
+    const bizStartKey = state.profile.businessStart ? state.profile.businessStart.slice(0,7) : null;
+    const isFirstBusinessMonth = !!bizStartKey && key === bizStartKey;
+    const socialDeducted = isFirstBusinessMonth ? 0 : social;
+    const halfHealth = isFirstBusinessMonth ? 0 : round2(healthUsed / 2);
+    const totalDeduction = socialDeducted + halfHealth;
     const taxBase = Math.max(0, sumBasis - totalDeduction);
 
     const groups = {};
@@ -251,7 +256,7 @@
       });
     }
     const due = Math.max(0, Math.round(totalTax));
-    return { sumNet, sumVat, sumGross, sumBasis, phase, social, healthUsed, halfHealth, totalDeduction, taxBase, tier, cumulative, breakdown, due };
+    return { sumNet, sumVat, sumGross, sumBasis, phase, social: socialDeducted, healthUsed, halfHealth, totalDeduction, taxBase, tier, cumulative, breakdown, due, isFirstBusinessMonth };
   }
 
   // ---------- tabs ----------
@@ -351,7 +356,7 @@
     const el = document.getElementById('buyerQuickPick');
     if(!el) return;
     const buyers = getKnownBuyers();
-    el.innerHTML = '<option value="">— выберите, чтобы заполнить данные —</option>' +
+    el.innerHTML = '<option value="">— или заполните поля ниже —</option>' +
       buyers.map((b,i) => `<option value="${i}">${esc(b.name)}</option>`).join('');
     el._buyers = buyers;
   }
@@ -459,14 +464,14 @@
       sumNet += c.net; sumVat += c.vatAmount; sumGross += c.gross;
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td><input type="text" data-id="${it.id}" data-f="desc" value="${esc(it.desc)}" list="serviceList" style="width:160px;border:1px solid var(--line);border-radius:6px;padding:5px 6px;font-size:12.5px;"></td>
-        <td class="num"><input type="number" data-id="${it.id}" data-f="qty" value="${it.qty}" step="0.01" style="width:60px;text-align:right;border:1px solid var(--line);border-radius:6px;padding:5px 6px;font-size:12.5px;"></td>
-        <td><input type="text" data-id="${it.id}" data-f="unit" value="${esc(it.unit)}" style="width:60px;border:1px solid var(--line);border-radius:6px;padding:5px 6px;font-size:12.5px;"></td>
-        <td class="num"><input type="number" data-id="${it.id}" data-f="price" value="${it.price}" step="0.01" style="width:80px;text-align:right;border:1px solid var(--line);border-radius:6px;padding:5px 6px;font-size:12.5px;"></td>
-        <td><select data-id="${it.id}" data-f="vat" style="border:1px solid var(--line);border-radius:6px;padding:5px 6px;font-size:12.5px;">${vatSelectHtml(it.vat)}</select></td>
-        <td class="num">${fmt(c.net)}</td>
-        <td class="num">${fmt(c.vatAmount)}</td>
-        <td class="num">${fmt(c.gross)}</td>
+        <td><input type="text" data-id="${it.id}" data-f="desc" value="${esc(it.desc)}" list="serviceList" style="width:100%;min-width:130px;border:1px solid var(--line);border-radius:6px;padding:5px 6px;font-size:12.5px;"></td>
+        <td class="num"><input type="number" data-id="${it.id}" data-f="qty" value="${it.qty}" step="0.01" style="width:56px;text-align:right;border:1px solid var(--line);border-radius:6px;padding:5px 6px;font-size:12.5px;"></td>
+        <td class="hm"><input type="text" data-id="${it.id}" data-f="unit" value="${esc(it.unit)}" style="width:60px;border:1px solid var(--line);border-radius:6px;padding:5px 6px;font-size:12.5px;"></td>
+        <td class="num"><input type="number" data-id="${it.id}" data-f="price" value="${it.price}" step="0.01" style="width:84px;text-align:right;border:1px solid var(--line);border-radius:6px;padding:5px 6px;font-size:12.5px;"></td>
+        <td class="hm"><select data-id="${it.id}" data-f="vat" style="border:1px solid var(--line);border-radius:6px;padding:5px 6px;font-size:12.5px;">${vatSelectHtml(it.vat)}</select></td>
+        <td class="num hm">${fmt(c.net)}</td>
+        <td class="num hm">${fmt(c.vatAmount)}</td>
+        <td class="num hm">${fmt(c.gross)}</td>
         <td><button class="del-btn" data-id="${it.id}" title="Удалить позицию">&times;</button></td>
       `;
       body.appendChild(tr);
@@ -645,7 +650,7 @@ ${platnoscXml}
 
   // ---------- issuing an invoice ----------
   document.getElementById('issueInvoiceBtn').addEventListener('click', () => {
-    if(!draftItems.length){ alert('Добавьте хотя бы одну позицию счёта.'); return; }
+    if(!draftItems.length){ alert('Добавьте хотя бы одну позицию фактуры.'); return; }
 
     const seller = {
       name: document.getElementById('sellerName').value,
@@ -742,7 +747,7 @@ ${platnoscXml}
       <pre>Продавец: ${esc(seller.name)}, NIP ${esc(seller.nip)}
 Покупатель: ${esc(buyer.name)}, ${buyerIdLine}
 Дата выставления: ${inv.date}${inv.saleDate ? '    Дата продажи: '+inv.saleDate : ''}    Срок оплаты: ${inv.paymentDays} дн. (${inv.paymentForm})
-Номер счёта: ${inv.number}    Валюта: ${currency}${currency!=='PLN' ? ' (курс '+kurs+')' : ''}
+Номер фактуры: ${inv.number}    Валюта: ${currency}${currency!=='PLN' ? ' (курс '+kurs+')' : ''}
 
 Позиции:
 ${itemLines}
@@ -935,7 +940,7 @@ ${itemLines}
     const tbody = document.getElementById('tbody');
     tbody.innerHTML = '';
     if(!entries.length){
-      tbody.innerHTML = '<tr class="empty-row"><td colspan="10">Счетов не найдено.</td></tr>';
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="10">Фактур не найдено — попробуйте изменить фильтры.</td></tr>';
     } else {
       entries.forEach(({row, periodKey}) => {
         const tr = document.createElement('tr');
@@ -949,7 +954,7 @@ ${itemLines}
           <td class="num hm">${fmt(row.gross)}</td>
           <td class="num editable-cell"><input type="number" step="0.01" value="${row.basis}" data-period="${periodKey}" data-id="${row.id}" data-role="basis"></td>
           <td class="rate-cell hm"><select data-period="${periodKey}" data-id="${row.id}" data-role="rate">${rateOptionsHtml(row.rate)}</select></td>
-          <td><div class="row-actions">${row.source==='issued' && row.snapshot ? `<button class="dup-btn" data-period="${periodKey}" data-id="${row.id}" title="Дублировать — выставить похожий счёт">⧉</button>` : ''}<button class="del-btn" data-period="${periodKey}" data-id="${row.id}" title="Удалить">&times;</button></div></td>
+          <td><div class="row-actions">${row.source==='issued' && row.snapshot ? `<button class="dup-btn" data-period="${periodKey}" data-id="${row.id}" title="Дублировать — выставить похожую фактуру">⧉</button>` : ''}<button class="del-btn" data-period="${periodKey}" data-id="${row.id}" title="Удалить">&times;</button></div></td>
         `;
         tbody.appendChild(tr);
       });
@@ -1157,7 +1162,8 @@ ${itemLines}
     const s = state.settings;
     const tierLabel = c ? (c.tier==='low' ? 'I порог (до '+fmt(s.thresholdLow)+' zł)' : c.tier==='mid' ? 'II порог ('+fmt(s.thresholdLow)+'–'+fmt(s.thresholdHigh)+' zł)' : 'III порог (свыше '+fmt(s.thresholdHigh)+' zł)') : '';
     document.getElementById('cumulativeHint').textContent = c
-      ? ('Доход нарастающим итогом: ' + fmt(c.cumulative) + ' zł → ' + tierLabel + ' → взнос на медстрахование: ' + fmt(c.healthUsed) + ' zł/мес.' + (s.tierMode!=='auto' ? ' (задано вручную)' : ''))
+      ? ((c.isFirstBusinessMonth ? 'Первый месяц деятельности: взносы ZUS ещё не платились, поэтому вычетов нет — они начнут уменьшать налог со следующего месяца. ' : '')
+        + 'Почему такой медвзнос — доход с начала года: ' + fmt(c.cumulative) + ' zł → ' + tierLabel + ' → взнос на медстрахование: ' + fmt(c.healthUsed) + ' zł/мес.' + (s.tierMode!=='auto' ? ' (задано вручную)' : ''))
       : 'Выберите месяц выше, чтобы увидеть расчёты.';
 
     document.getElementById('stampPeriod').textContent = key ? monthLabel(key) : 'период не выбран';
@@ -1320,7 +1326,7 @@ ${itemLines}
           <div class="home-sum">${fmt(zusTotal)} zł</div>
           <div class="home-step-sub">Один перевод — покрывает все взносы (социальные + медицинский). Затем подайте декларацию ZUS DRA через PUE/eZUS — данные готовы во вкладке <button type="button" class="link-btn" data-home-goto="dokumenty">Документы</button>.</div>
           ${zusAcc ? accountLine(zusAcc, zusTotal) : noAccountNote('номер счёта ZUS (NRS)')}
-        ` : `<div class="home-step-sub">Сначала выставьте фактуру.</div>`}
+        ` : `<div class="home-step-sub">Появится после выставления фактуры.</div>`}
       </div>
     </div>`;
 
@@ -1336,7 +1342,7 @@ ${itemLines}
             ? `<div class="home-step-sub">Перевод на ваш налоговый микросчёт, в назначении платежа: «PIT-28, ${esc(monthLabel(key))}». Детали расчёта — во вкладке <button type="button" class="link-btn" data-home-goto="dokumenty">Документы</button>.</div>
                ${taxAcc ? accountLine(taxAcc, due) : noAccountNote('налоговый микросчёт')}`
             : `<div class="home-step-sub">В этом месяце налог к оплате — 0 zł (вычеты покрыли базу). Платить не нужно.</div>`}
-        ` : `<div class="home-step-sub">Сначала выставьте фактуру.</div>`}
+        ` : `<div class="home-step-sub">Появится после выставления фактуры.</div>`}
       </div>
     </div>`;
 
@@ -1352,7 +1358,7 @@ ${itemLines}
             <button class="action" data-home-action="evidencja">Эвиденция за месяц (PDF)</button>
             <button class="action" data-home-goto="dokumenty">Все документы</button>
           </div>
-        ` : `<div class="home-step-sub">Сначала выставьте фактуру.</div>`}
+        ` : `<div class="home-step-sub">Появится после выставления фактуры.</div>`}
       </div>
     </div>`;
 
@@ -1487,11 +1493,18 @@ ${itemLines}
       : `Доход за ${year} год выше ${fmt(qLimit)} zł — квартальная оплата рычалта со следующего года недоступна, платите помесячно.`;
   }
 
+  function businessStartKey(){
+    return state.profile.businessStart ? state.profile.businessStart.slice(0,7) : null;
+  }
+
   function shiftHomeMonth(delta){
     const key = state.activePeriod || currentMonthKey();
     const [y,m] = key.split('-').map(Number);
     const d = new Date(y, m-1+delta, 1);
-    const nk = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    let nk = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    const startKey = businessStartKey();
+    if(startKey && nk < startKey) nk = startKey; // раньше открытия ИП месяцев не бывает
+    if(nk === state.activePeriod) return;
     ensurePeriod(nk);
     setActivePeriod(nk);
   }
@@ -1602,9 +1615,13 @@ ${itemLines}
   function renderYearMonthSwitcher(){
     document.getElementById('yearLabel').textContent = uiYear;
     const grid = document.getElementById('monthGrid');
+    const startKey = businessStartKey();
     grid.innerHTML = MONTHS_RU_SHORT.map((name, idx) => {
       const mm = String(idx+1).padStart(2,'0');
       const key = `${uiYear}-${mm}`;
+      if(startKey && key < startKey){
+        return `<div class="month-cell pre-start"><span class="month-name">${name}</span><span class="month-stat">до ИП</span></div>`;
+      }
       const exists = !!state.periods[key];
       const active = key === state.activePeriod;
       let stat = '';
@@ -1621,14 +1638,18 @@ ${itemLines}
     grid.querySelectorAll('.month-cell').forEach(cell => {
       cell.addEventListener('click', e => {
         if(e.target.classList.contains('month-del')) return;
+        if(!cell.dataset.key) return;
         setActivePeriod(cell.dataset.key);
       });
     });
+
+    const openingDetails = document.getElementById('openingDetails');
+    if(openingDetails) openingDetails.style.display = businessStartKey() ? 'none' : '';
     grid.querySelectorAll('.month-del').forEach(btn => {
       btn.addEventListener('click', e => {
         e.stopPropagation();
         const k = btn.dataset.key;
-        if(confirm(`Удалить весь месяц ${monthLabel(k)} вместе со всеми его счетами? Это действие нельзя отменить.`)){
+        if(confirm(`Удалить весь месяц ${monthLabel(k)} вместе со всеми его фактурами? Это действие нельзя отменить.`)){
           delete state.periods[k];
           if(state.activePeriod === k){
             const remaining = Object.keys(state.periods).sort();
@@ -1675,7 +1696,16 @@ ${itemLines}
     document.getElementById(id).addEventListener('input', () => {
       state.profile[profileFieldMap[id]] = document.getElementById(id).value;
       saveState();
-      if(id === 'businessStartDate'){ renderZusModeHint(); refreshAllZusDependent(); }
+      if(id === 'businessStartDate'){
+        const sk = businessStartKey();
+        if(sk && state.activePeriod && state.activePeriod < sk){
+          ensurePeriod(sk);
+          state.activePeriod = sk;
+          uiYear = parseInt(sk.slice(0,4), 10);
+        }
+        renderZusModeHint();
+        refreshAllZusDependent();
+      }
       if(id === 'sellerZusAccount' || id === 'sellerTaxMicroAccount') renderPaymentInfo();
       renderHome();
     });
@@ -1697,7 +1727,7 @@ ${itemLines}
     const c = computeForPeriod(key);
     const chorobowa = state.settings.chorobowa ? 'с добровольным страхованием по болезни' : 'без страхования по болезни';
 
-    let csv = '№;Дата;№ счёта;Покупатель;Нетто;VAT;Брутто;База;Ставка\n';
+    let csv = '№;Дата;№ фактуры;Покупатель;Нетто;VAT;Брутто;Доход;Ставка\n';
     period.rows.forEach((r, i) => {
       csv += [i+1, r.date, r.number, r.buyer, fmt(r.net), fmt(r.vat), fmt(r.gross), fmt(r.basis), r.rate+'%']
         .map(v => String(v).replace(/;/g,',')).join(';') + '\n';
@@ -1719,7 +1749,7 @@ ${itemLines}
     const year = state.activePeriod.slice(0,4);
     const keys = Object.keys(state.periods).filter(k => k.slice(0,4) === year).sort();
 
-    let csv = 'Месяц;№;Дата;№ счёта;Покупатель;Нетто;VAT;Брутто;База;Ставка\n';
+    let csv = 'Месяц;№;Дата;№ фактуры;Покупатель;Нетто;VAT;Брутто;Доход;Ставка\n';
     keys.forEach(k => {
       state.periods[k].rows.forEach((r,i) => {
         csv += [monthLabel(k), i+1, r.date, r.number, r.buyer, fmt(r.net), fmt(r.vat), fmt(r.gross), fmt(r.basis), r.rate+'%']
@@ -1964,6 +1994,11 @@ ${pages}
       state.activePeriod = key;
     } else if(!state.activePeriod || !state.periods[state.activePeriod]){
       state.activePeriod = Object.keys(state.periods).sort().pop();
+    }
+    const bizStart = businessStartKey();
+    if(bizStart && state.activePeriod < bizStart){
+      ensurePeriod(bizStart);
+      state.activePeriod = bizStart;
     }
     uiYear = parseInt(state.activePeriod.slice(0,4), 10);
 

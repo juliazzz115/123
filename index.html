@@ -115,11 +115,11 @@
     </div>
     <div class="stat-tile">
       <div class="stat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h14l-5.5 6.5V16l-3-1.6v-3.9L3 4z"/></svg></div>
-      <div class="stat-body"><span class="stat-value" id="statFiltered">0,00 zł</span><span class="stat-label">Доход по фильтру</span></div>
+      <div class="stat-body"><span class="stat-value" id="statFiltered">0,00 zł</span><span class="stat-label">Сумма по списку ниже</span></div>
     </div>
     <div class="stat-tile">
       <div class="stat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3l-1.4 14M13.4 3 12 17M3.5 7.5h13M3 12.5h13"/></svg></div>
-      <div class="stat-body"><span class="stat-value" id="statCount">0</span><span class="stat-label">Фактур по фильтру</span></div>
+      <div class="stat-body"><span class="stat-value" id="statCount">0</span><span class="stat-label">Фактур в списке</span></div>
     </div>
   </div>
 
@@ -152,15 +152,15 @@
           <tr>
             <th class="hm">Месяц</th><th>Дата</th><th class="hm">№ фактуры</th><th>Покупатель</th>
             <th class="num hm">Нетто</th><th class="num hm">VAT</th><th class="num hm">Брутто</th>
-            <th class="num">База (PLN)</th><th class="hm">Ставка</th><th></th>
+            <th class="num">Доход (PLN)</th><th class="hm">Ставка</th><th></th>
           </tr>
         </thead>
         <tbody id="tbody">
-          <tr class="empty-row"><td colspan="10">Пока нет ни одной фактуры.</td></tr>
+          <tr class="empty-row"><td colspan="10">Пока нет ни одной фактуры — нажмите «+ Выставить фактуру».</td></tr>
         </tbody>
         <tfoot>
           <tr>
-            <td colspan="4">Итого по фильтру</td>
+            <td colspan="4">Итого по списку</td>
             <td class="num" id="sumNet">0,00</td>
             <td class="num" id="sumVat">0,00</td>
             <td class="num" id="sumGross">0,00</td>
@@ -185,74 +185,27 @@
   <!-- Invoice creation form -->
   <div class="card" id="invoiceFormCard" data-cat="invoices" style="display:none;">
     <div class="step-head"><span class="cat-icon cat-invoices"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 2.5h10v15l-2.2-1.4L10.6 17.5l-2.2-1.4-2.2 1.4L4 16.1V2.5z"/><path d="M7 6.5h6M7 9.5h6M7 12.5h3.5"/></svg></span><h2>Новая фактура</h2></div>
-    <p class="step-desc" style="margin-left:0;">Фактура попадёт в тот месяц, на который приходится дата выставления. Покупателя и услуги из прошлых фактур можно выбрать из списка.</p>
+    <p class="step-desc" style="margin-left:0;">Заполните покупателя и услугу — номер, даты и остальное подставятся сами.</p>
 
-    <div class="field-grid">
-      <div class="field"><label for="invNumber">Номер фактуры</label><input type="text" id="invNumber"></div>
-      <div class="field"><label for="invDate">Дата выставления</label><input type="date" id="invDate"></div>
-      <div class="field"><label for="invSaleDate">Дата продажи (если отличается от даты выставления)</label><input type="date" id="invSaleDate"></div>
-      <div class="field"><label for="invPlace">Место выставления</label><input type="text" id="invPlace" placeholder="Warszawa"></div>
-      <div class="field"><label for="invPaymentDays">Срок оплаты (дней)</label><input type="number" id="invPaymentDays" value="7" min="0"></div>
-      <div class="field"><label for="invPaymentForm">Способ оплаты</label>
-        <select id="invPaymentForm"><option value="перевод">перевод</option><option value="наличные">наличные</option><option value="карта">карта</option><option value="BLIK">BLIK</option></select>
-      </div>
-      <div class="field"><label for="invCurrency">Валюта</label>
-        <select id="invCurrency"><option>PLN</option><option>EUR</option><option>USD</option><option>GBP</option></select>
-      </div>
-      <div class="field" id="invKursField" style="display:none;">
-        <label for="invKurs">Курс валюты (к PLN, по курсу НБП)</label>
-        <input type="number" id="invKurs" step="0.0001" min="0">
-        <span class="unit-note">нужен, чтобы записать доход в PLN</span>
-      </div>
-    </div>
-
-    <p class="step-desc" style="margin-left:0; margin-top:16px;"><strong>Покупатель</strong></p>
+    <p class="form-section-title">1. Кому выставляете</p>
     <div class="field-grid">
       <div class="field">
-        <label for="buyerQuickPick">Покупатель из прошлых фактур</label>
-        <select id="buyerQuickPick"><option value="">— выберите, чтобы заполнить данные —</option></select>
+        <label for="buyerQuickPick">Быстрый выбор — покупатель из прошлых фактур</label>
+        <select id="buyerQuickPick"><option value="">— или заполните поля ниже —</option></select>
       </div>
-      <div class="field">
-        <label for="buyerIdType">Идентификация покупателя</label>
-        <select id="buyerIdType">
-          <option value="nip">NIP (Польша)</option>
-          <option value="vatue">Иностранный номер VAT (ЕС)</option>
-          <option value="none">Без идентификатора (частное лицо)</option>
-        </select>
-      </div>
-      <div class="field"><label for="buyerName">Название / имя и фамилия покупателя</label><input type="text" id="buyerName"></div>
+      <div class="field"><label for="buyerName">Название фирмы / имя и фамилия</label><input type="text" id="buyerName"></div>
       <div class="field" id="buyerNipField"><label for="buyerNip">NIP покупателя</label><input type="text" id="buyerNip"></div>
       <div class="field" id="buyerVatUeField" style="display:none;"><label for="buyerVatId">Иностранный номер VAT</label><input type="text" id="buyerVatId" placeholder="28968115"></div>
       <div class="field" id="buyerCountryField" style="display:none;"><label for="buyerCountry">Код страны (VAT-ЕС)</label><input type="text" id="buyerCountry" placeholder="MT" maxlength="2"></div>
       <div class="field"><label for="buyerStreet">Улица и номер</label><input type="text" id="buyerStreet"></div>
       <div class="field"><label for="buyerZipCity">Индекс и город</label><input type="text" id="buyerZipCity"></div>
-      <div class="field"><label for="buyerAddressCountry">Код страны адреса покупателя</label><input type="text" id="buyerAddressCountry" value="PL" maxlength="2"></div>
-      <div class="field"><label for="invRyczaltRate">Ставка ryczałt для этой фактуры</label>
-        <select id="invRyczaltRate"></select>
-      </div>
-      <div class="field" id="buyerJstField" style="display:none;">
-        <label style="flex-direction:row; align-items:center; gap:8px; display:flex;"><input type="checkbox" id="buyerJst" style="width:auto;"> Покупатель — орган местного самоуправления (JST)</label>
-      </div>
-      <div class="field" id="buyerGvField" style="display:none;">
-        <label style="flex-direction:row; align-items:center; gap:8px; display:flex;"><input type="checkbox" id="buyerGv" style="width:auto;"> Покупатель — группа НДС</label>
-      </div>
     </div>
 
-    <details class="inline-details">
-      <summary>Дополнительные отметки (редко нужны)</summary>
-      <div class="field-grid" style="margin-top:12px;">
-        <div class="field"><label style="flex-direction:row; align-items:center; gap:8px; display:flex;"><input type="checkbox" id="invCashMethod" style="width:auto;"> Кассовый метод</label></div>
-        <div class="field"><label style="flex-direction:row; align-items:center; gap:8px; display:flex;"><input type="checkbox" id="invSelfBilling" style="width:auto;"> Самовыставление (samofakturowanie)</label></div>
-        <div class="field"><label style="flex-direction:row; align-items:center; gap:8px; display:flex;"><input type="checkbox" id="invReverseCharge" style="width:auto;"> Обратное начисление НДС</label></div>
-        <div class="field"><label style="flex-direction:row; align-items:center; gap:8px; display:flex;"><input type="checkbox" id="invSplitPayment" style="width:auto;"> Механизм разделённого платежа (MPP)</label></div>
-      </div>
-    </details>
-
-    <p class="step-desc" style="margin-left:0; margin-top:18px;"><strong>Позиции фактуры</strong> — описание подсказывается из прошлых фактур</p>
-    <div class="table-wrap" style="margin-left:0;">
+    <p class="form-section-title">2. За что</p>
+    <div class="table-wrap" style="margin-left:0; margin-top:0;">
       <table id="draftItemsTable">
         <thead>
-          <tr><th>Описание</th><th class="num">Кол-во</th><th>Ед.</th><th class="num">Цена нетто</th><th>VAT</th><th class="num">Нетто</th><th class="num">VAT</th><th class="num">Брутто</th><th></th></tr>
+          <tr><th>Описание услуги</th><th class="num">Кол-во</th><th class="hm">Ед.</th><th class="num">Цена нетто</th><th class="hm">VAT</th><th class="num hm">Нетто</th><th class="num hm">VAT</th><th class="num hm">Брутто</th><th></th></tr>
         </thead>
         <tbody id="draftItemsBody"></tbody>
         <tfoot>
@@ -261,9 +214,63 @@
       </table>
     </div>
     <datalist id="serviceList"></datalist>
-    <div class="actions" style="margin-left:0;">
+    <div class="actions" style="margin-left:0; margin-top:10px;">
       <button class="action" id="addItemBtn">+ добавить позицию</button>
     </div>
+
+    <p class="form-section-title">3. Дата и ставка налога</p>
+    <div class="field-grid">
+      <div class="field">
+        <label for="invDate">Дата выставления</label>
+        <input type="date" id="invDate">
+        <span class="unit-note">фактура попадёт в месяц этой даты</span>
+      </div>
+      <div class="field">
+        <label for="invRyczaltRate">Ставка рычалта для этой фактуры</label>
+        <select id="invRyczaltRate"></select>
+        <span class="unit-note">обычно всегда одна и та же — например, 12% для программирования</span>
+      </div>
+    </div>
+
+    <details class="inline-details">
+      <summary>Дополнительно — номер, валюта, оплата, особые случаи</summary>
+      <div class="field-grid" style="margin-top:12px;">
+        <div class="field"><label for="invNumber">Номер фактуры</label><input type="text" id="invNumber"><span class="unit-note">подставляется автоматически — следующий по порядку</span></div>
+        <div class="field"><label for="invSaleDate">Дата продажи (если отличается)</label><input type="date" id="invSaleDate"></div>
+        <div class="field"><label for="invPlace">Место выставления</label><input type="text" id="invPlace" placeholder="Warszawa"></div>
+        <div class="field"><label for="invPaymentDays">Срок оплаты (дней)</label><input type="number" id="invPaymentDays" value="7" min="0"></div>
+        <div class="field"><label for="invPaymentForm">Способ оплаты</label>
+          <select id="invPaymentForm"><option value="перевод">перевод</option><option value="наличные">наличные</option><option value="карта">карта</option><option value="BLIK">BLIK</option></select>
+        </div>
+        <div class="field"><label for="invCurrency">Валюта</label>
+          <select id="invCurrency"><option>PLN</option><option>EUR</option><option>USD</option><option>GBP</option></select>
+        </div>
+        <div class="field" id="invKursField" style="display:none;">
+          <label for="invKurs">Курс валюты (к PLN, по курсу НБП)</label>
+          <input type="number" id="invKurs" step="0.0001" min="0">
+          <span class="unit-note">нужен, чтобы записать доход в PLN</span>
+        </div>
+        <div class="field">
+          <label for="buyerIdType">Идентификация покупателя</label>
+          <select id="buyerIdType">
+            <option value="nip">NIP (Польша)</option>
+            <option value="vatue">Иностранный номер VAT (ЕС)</option>
+            <option value="none">Без идентификатора (частное лицо)</option>
+          </select>
+        </div>
+        <div class="field"><label for="buyerAddressCountry">Код страны адреса покупателя</label><input type="text" id="buyerAddressCountry" value="PL" maxlength="2"></div>
+        <div class="field" id="buyerJstField" style="display:none;">
+          <label style="flex-direction:row; align-items:center; gap:8px; display:flex;"><input type="checkbox" id="buyerJst" style="width:auto;"> Покупатель — орган местного самоуправления (JST)</label>
+        </div>
+        <div class="field" id="buyerGvField" style="display:none;">
+          <label style="flex-direction:row; align-items:center; gap:8px; display:flex;"><input type="checkbox" id="buyerGv" style="width:auto;"> Покупатель — группа НДС</label>
+        </div>
+        <div class="field"><label style="flex-direction:row; align-items:center; gap:8px; display:flex;"><input type="checkbox" id="invCashMethod" style="width:auto;"> Кассовый метод</label></div>
+        <div class="field"><label style="flex-direction:row; align-items:center; gap:8px; display:flex;"><input type="checkbox" id="invSelfBilling" style="width:auto;"> Самовыставление (samofakturowanie)</label></div>
+        <div class="field"><label style="flex-direction:row; align-items:center; gap:8px; display:flex;"><input type="checkbox" id="invReverseCharge" style="width:auto;"> Обратное начисление НДС</label></div>
+        <div class="field"><label style="flex-direction:row; align-items:center; gap:8px; display:flex;"><input type="checkbox" id="invSplitPayment" style="width:auto;"> Механизм разделённого платежа (MPP)</label></div>
+      </div>
+    </details>
 
     <div class="actions" style="margin-left:0; margin-top:18px;">
       <button class="action primary" id="issueInvoiceBtn">Выставить фактуру</button>
@@ -297,14 +304,15 @@
   </div>
 
   <div class="card" data-cat="period">
-    <div class="step-head"><span class="cat-icon cat-period"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.2" width="14" height="12.3" rx="2"/><path d="M3 8h14M6.5 2.5v3M13.5 2.5v3"/></svg></span><h2>Период</h2></div>
+    <div class="step-head"><span class="cat-icon cat-period"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.2" width="14" height="12.3" rx="2"/><path d="M3 8h14M6.5 2.5v3M13.5 2.5v3"/></svg></span><h2>Выберите месяц</h2></div>
+    <p class="step-desc" style="margin-left:0;">Все документы и расчёты ниже показываются за выбранный месяц.</p>
     <div class="year-switcher">
       <button type="button" class="year-nav-btn" id="yearPrevBtn" aria-label="Предыдущий год">‹</button>
       <span class="year-label" id="yearLabel">2026</span>
       <button type="button" class="year-nav-btn" id="yearNextBtn" aria-label="Следующий год">›</button>
     </div>
     <div class="month-grid" id="monthGrid"></div>
-    <details class="inline-details">
+    <details class="inline-details" id="openingDetails">
       <summary>Начали учёт не с января? Укажите доход за прошлые месяцы</summary>
       <div class="field" style="max-width:260px; margin-top:12px;">
         <label for="openingByYearInput">Доход до начала работы с приложением (за этот год)</label>
@@ -385,11 +393,11 @@
     <p class="step-desc" style="margin-left:0;">Детали расчёта авансового платежа по рычалту.</p>
 
     <ul class="result-list">
-      <li><span>Количество фактур</span><span class="v" id="calcCount">0</span></li>
-      <li><span>Сумма базы дохода</span><span class="v" id="calcBasis">0,00 zł</span></li>
+      <li><span>Фактур за месяц</span><span class="v" id="calcCount">0</span></li>
+      <li><span>Доход за месяц</span><span class="v" id="calcBasis">0,00 zł</span></li>
       <li class="neg"><span>Вычет — социальный взнос</span><span class="v">&minus; <span id="calcSocial">0,00</span> zł</span></li>
       <li class="neg"><span>Вычет — 50% взноса на медстрахование (<span id="calcHealthUsed">0,00</span> zł)</span><span class="v">&minus; <span id="calcHalfZus">0,00</span> zł</span></li>
-      <li><span><strong>Налогооблагаемая база</strong></span><span class="v" id="calcTaxBase">0,00 zł</span></li>
+      <li><span><strong>База для налога (доход − вычеты)</strong></span><span class="v" id="calcTaxBase">0,00 zł</span></li>
     </ul>
 
     <div class="rate-breakdown" id="rateBreakdown"></div>
