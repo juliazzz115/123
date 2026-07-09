@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Учёт ИП на рычалте — счета и KSeF</title>
-<meta name="description" content="Счета, налоги ZUS и PIT-28 (ryczałt) для ИП (JDG) в Польше. Работает офлайн, данные хранятся локально.">
+<title>Учёт ИП на рычалте — фактуры, ZUS и налог</title>
+<meta name="description" content="Фактуры, налоги ZUS и PIT-28 (ryczałt) для ИП (JDG) в Польше. Работает офлайн, данные хранятся локально.">
 <meta name="theme-color" content="#14213d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -22,8 +22,9 @@
   <div class="topbar-inner">
     <span class="topbar-brand"><span class="topbar-dot"></span>Учёт ИП</span>
     <nav class="topbar-tabs" id="topbarTabs">
-      <button type="button" class="tab-btn active" data-tab="schety">Счета</button>
-      <button type="button" class="tab-btn" data-tab="nalogi">Налоги</button>
+      <button type="button" class="tab-btn active" data-tab="glavnaya">Главная</button>
+      <button type="button" class="tab-btn" data-tab="schety">Фактуры</button>
+      <button type="button" class="tab-btn" data-tab="dokumenty">Документы</button>
       <button type="button" class="tab-btn" data-tab="ustawienia">Настройки</button>
     </nav>
     <span class="save-status" id="saveStatus"><span class="save-dot"></span><span id="saveStatusText">сохранено</span></span>
@@ -32,14 +33,43 @@
 
 <div class="app">
 
-  <!-- ============ TAB: СЧЕТА ============ -->
-  <div class="tab-panel" id="tabSchety">
+  <!-- ============ TAB: ГЛАВНАЯ ============ -->
+  <div class="tab-panel" id="tabGlavnaya">
+
+  <!-- onboarding: shown until profile is filled -->
+  <div class="card" data-cat="profile" id="onboardingCard" style="display:none;">
+    <div class="step-head"><span class="cat-icon cat-profile"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="6.5" r="3"/><path d="M4 16.5c0-2.8 2.7-4.5 6-4.5s6 1.7 6 4.5"/></svg></span><h2>Начните здесь — один раз</h2></div>
+    <p class="step-desc" style="margin-left:0;">Введите дату начала деятельности и свои данные. Дальше приложение само знает ваши льготы по ZUS, считает взносы и налог и напоминает о сроках.</p>
+    <ul class="result-list" id="onboardingList"></ul>
+    <div class="actions" style="margin-left:0;">
+      <button class="action primary" id="onboardingGoBtn">Заполнить данные в Настройках</button>
+    </div>
+  </div>
+
+  <div class="notice-box" id="zusReminderBox" style="display:none;"></div>
+
+  <div class="home-month-bar card" data-cat="period">
+    <div class="home-month-nav">
+      <button type="button" class="year-nav-btn" id="homePrevMonth" aria-label="Предыдущий месяц">‹</button>
+      <span class="home-month-label" id="homeMonthLabel">—</span>
+      <button type="button" class="year-nav-btn" id="homeNextMonth" aria-label="Следующий месяц">›</button>
+    </div>
+    <div class="home-phase-line" id="homePhaseLine"></div>
+  </div>
+
+  <div class="home-steps" id="homeSteps"></div>
+
+  </div>
+  <!-- ============ /TAB: ГЛАВНАЯ ============ -->
+
+  <!-- ============ TAB: ФАКТУРЫ ============ -->
+  <div class="tab-panel" id="tabSchety" hidden>
 
   <div class="app-header">
     <div class="app-header-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 2.5h10v15l-2.2-1.4L10.6 17.5l-2.2-1.4-2.2 1.4L4 16.1V2.5z"/><path d="M7 6.5h6M7 9.5h6M7 12.5h3.5"/></svg></div>
     <div>
-      <h1>Счета</h1>
-      <p>Все выставленные и загруженные счета в одном списке. Выставляйте новые, дублируйте старые, фильтруйте и смотрите итоги.</p>
+      <h1>Фактуры</h1>
+      <p>Все выставленные и загруженные фактуры в одном списке. Выставляйте новые, дублируйте старые, фильтруйте и смотрите итоги.</p>
     </div>
   </div>
 
@@ -54,7 +84,7 @@
     </div>
     <div class="stat-tile">
       <div class="stat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3l-1.4 14M13.4 3 12 17M3.5 7.5h13M3 12.5h13"/></svg></div>
-      <div class="stat-body"><span class="stat-value" id="statCount">0</span><span class="stat-label">Счетов по фильтру</span></div>
+      <div class="stat-body"><span class="stat-value" id="statCount">0</span><span class="stat-label">Фактур по фильтру</span></div>
     </div>
   </div>
 
@@ -76,22 +106,22 @@
       </div>
       <div class="field" style="flex:1; min-width:180px;">
         <label for="filterSearch">Поиск</label>
-        <input type="text" id="filterSearch" placeholder="Покупатель или номер счёта">
+        <input type="text" id="filterSearch" placeholder="Покупатель или номер фактуры">
       </div>
-      <button class="action primary" id="newInvoiceBtn" style="align-self:flex-end;">+ Новый счёт</button>
+      <button class="action primary" id="newInvoiceBtn" style="align-self:flex-end;">+ Выставить фактуру</button>
     </div>
 
     <div class="table-wrap" style="margin-left:0;">
       <table>
         <thead>
           <tr>
-            <th>Месяц</th><th>Дата</th><th>№ счёта</th><th>Покупатель</th>
+            <th>Месяц</th><th>Дата</th><th>№ фактуры</th><th>Покупатель</th>
             <th class="num">Нетто</th><th class="num">VAT</th><th class="num">Брутто</th>
             <th class="num">База (PLN)</th><th>Ставка</th><th></th>
           </tr>
         </thead>
         <tbody id="tbody">
-          <tr class="empty-row"><td colspan="10">Пока нет ни одного счёта.</td></tr>
+          <tr class="empty-row"><td colspan="10">Пока нет ни одной фактуры.</td></tr>
         </tbody>
         <tfoot>
           <tr>
@@ -119,11 +149,11 @@
 
   <!-- Invoice creation form -->
   <div class="card" id="invoiceFormCard" data-cat="invoices" style="display:none;">
-    <div class="step-head"><span class="cat-icon cat-invoices"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 2.5h10v15l-2.2-1.4L10.6 17.5l-2.2-1.4-2.2 1.4L4 16.1V2.5z"/><path d="M7 6.5h6M7 9.5h6M7 12.5h3.5"/></svg></span><h2>Новый счёт</h2></div>
-    <p class="step-desc" style="margin-left:0;">Счёт попадёт в список того месяца, на который приходится дата выставления. Покупателя и услуги из прошлых счетов можно выбрать из списка ниже.</p>
+    <div class="step-head"><span class="cat-icon cat-invoices"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 2.5h10v15l-2.2-1.4L10.6 17.5l-2.2-1.4-2.2 1.4L4 16.1V2.5z"/><path d="M7 6.5h6M7 9.5h6M7 12.5h3.5"/></svg></span><h2>Новая фактура</h2></div>
+    <p class="step-desc" style="margin-left:0;">Фактура попадёт в тот месяц, на который приходится дата выставления. Покупателя и услуги из прошлых фактур можно выбрать из списка.</p>
 
     <div class="field-grid">
-      <div class="field"><label for="invNumber">Номер счёта</label><input type="text" id="invNumber"></div>
+      <div class="field"><label for="invNumber">Номер фактуры</label><input type="text" id="invNumber"></div>
       <div class="field"><label for="invDate">Дата выставления</label><input type="date" id="invDate"></div>
       <div class="field"><label for="invSaleDate">Дата продажи (если отличается от даты выставления)</label><input type="date" id="invSaleDate"></div>
       <div class="field"><label for="invPlace">Место выставления</label><input type="text" id="invPlace" placeholder="Warszawa"></div>
@@ -144,7 +174,7 @@
     <p class="step-desc" style="margin-left:0; margin-top:16px;"><strong>Покупатель</strong></p>
     <div class="field-grid">
       <div class="field">
-        <label for="buyerQuickPick">Покупатель из прошлых счетов</label>
+        <label for="buyerQuickPick">Покупатель из прошлых фактур</label>
         <select id="buyerQuickPick"><option value="">— выберите, чтобы заполнить данные —</option></select>
       </div>
       <div class="field">
@@ -162,7 +192,7 @@
       <div class="field"><label for="buyerStreet">Улица и номер</label><input type="text" id="buyerStreet"></div>
       <div class="field"><label for="buyerZipCity">Индекс и город</label><input type="text" id="buyerZipCity"></div>
       <div class="field"><label for="buyerAddressCountry">Код страны адреса покупателя</label><input type="text" id="buyerAddressCountry" value="PL" maxlength="2"></div>
-      <div class="field"><label for="invRyczaltRate">Ставка ryczałt для этого счёта</label>
+      <div class="field"><label for="invRyczaltRate">Ставка ryczałt для этой фактуры</label>
         <select id="invRyczaltRate"></select>
       </div>
       <div class="field" id="buyerJstField" style="display:none;">
@@ -173,15 +203,17 @@
       </div>
     </div>
 
-    <p class="step-desc" style="margin-left:0; margin-top:18px;"><strong>Отметки (редкие случаи — обычно оставляйте пустыми)</strong></p>
-    <div class="field-grid">
-      <div class="field"><label style="flex-direction:row; align-items:center; gap:8px; display:flex;"><input type="checkbox" id="invCashMethod" style="width:auto;"> Кассовый метод</label></div>
-      <div class="field"><label style="flex-direction:row; align-items:center; gap:8px; display:flex;"><input type="checkbox" id="invSelfBilling" style="width:auto;"> Самовыставление (samofakturowanie)</label></div>
-      <div class="field"><label style="flex-direction:row; align-items:center; gap:8px; display:flex;"><input type="checkbox" id="invReverseCharge" style="width:auto;"> Обратное начисление НДС</label></div>
-      <div class="field"><label style="flex-direction:row; align-items:center; gap:8px; display:flex;"><input type="checkbox" id="invSplitPayment" style="width:auto;"> Механизм разделённого платежа (MPP)</label></div>
-    </div>
+    <details class="inline-details">
+      <summary>Дополнительные отметки (редко нужны)</summary>
+      <div class="field-grid" style="margin-top:12px;">
+        <div class="field"><label style="flex-direction:row; align-items:center; gap:8px; display:flex;"><input type="checkbox" id="invCashMethod" style="width:auto;"> Кассовый метод</label></div>
+        <div class="field"><label style="flex-direction:row; align-items:center; gap:8px; display:flex;"><input type="checkbox" id="invSelfBilling" style="width:auto;"> Самовыставление (samofakturowanie)</label></div>
+        <div class="field"><label style="flex-direction:row; align-items:center; gap:8px; display:flex;"><input type="checkbox" id="invReverseCharge" style="width:auto;"> Обратное начисление НДС</label></div>
+        <div class="field"><label style="flex-direction:row; align-items:center; gap:8px; display:flex;"><input type="checkbox" id="invSplitPayment" style="width:auto;"> Механизм разделённого платежа (MPP)</label></div>
+      </div>
+    </details>
 
-    <p class="step-desc" style="margin-left:0; margin-top:18px;"><strong>Позиции счёта</strong> — описание подсказывается из прошлых счетов (начните печатать или выберите из списка)</p>
+    <p class="step-desc" style="margin-left:0; margin-top:18px;"><strong>Позиции фактуры</strong> — описание подсказывается из прошлых фактур</p>
     <div class="table-wrap" style="margin-left:0;">
       <table>
         <thead>
@@ -199,35 +231,35 @@
     </div>
 
     <div class="actions" style="margin-left:0; margin-top:18px;">
-      <button class="action primary" id="issueInvoiceBtn">Выставить счёт</button>
+      <button class="action primary" id="issueInvoiceBtn">Выставить фактуру</button>
       <button class="action" id="cancelInvoiceBtn">Отмена</button>
     </div>
 
     <div id="invoicePreview"></div>
   </div>
 
-  <div class="notice-box">
-    <strong>Важно про KSeF:</strong> приложение генерирует XML-файл вспомогательно, по образцу реального экспорта из
-    Aplikacji Podatnika KSeF — но у меня нет доступа к официальной валидационной схеме FA(3), поэтому не могу
-    гарантировать, что каждый случай будет принят без замечаний. Настоящую отправку в KSeF делайте через бесплатное
-    Aplikację Podatnika KSeF (ksef.podatki.gov.pl) либо e-mikrofirmę в e-Urzędzie Skarbowym.
-  </div>
+  <details class="notice-details">
+    <summary>Важно про KSeF</summary>
+    <div class="notice-box">
+      Приложение генерирует XML-файл вспомогательно, по образцу реального экспорта из Aplikacji Podatnika KSeF — но
+      без доступа к официальной валидационной схеме FA(3), поэтому не гарантирует приём без замечаний. Настоящую
+      отправку делайте через бесплатное Aplikację Podatnika KSeF (ksef.podatki.gov.pl) либо e-mikrofirmę в e-Urzędzie Skarbowym.
+    </div>
+  </details>
 
   </div>
-  <!-- ============ /TAB: СЧЕТА ============ -->
+  <!-- ============ /TAB: ФАКТУРЫ ============ -->
 
-  <!-- ============ TAB: НАЛОГИ ============ -->
-  <div class="tab-panel" id="tabNalogi" hidden>
+  <!-- ============ TAB: ДОКУМЕНТЫ ============ -->
+  <div class="tab-panel" id="tabDokumenty" hidden>
 
   <div class="app-header">
-    <div class="app-header-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2.7l6 2.3v4.6c0 4.1-2.6 6.9-6 8-3.4-1.1-6-3.9-6-8V5l6-2.3z"/><path d="M7.3 10l1.9 1.9L13 8"/></svg></div>
+    <div class="app-header-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 2.5h6.5L16 6.5v11H5.5v-15z"/><path d="M12 2.5v4h4M8 10.5h5M8 13.5h5"/></svg></div>
     <div>
-      <h1>Налоги</h1>
-      <p>ZUS и PIT-28 (ryczałt) считаются отдельно для каждого месяца. Выберите месяц ниже.</p>
+      <h1>Документы</h1>
+      <p>Эвиденция доходов (PDF), данные для декларации ZUS DRA, детали расчёта налога и выгрузки за любой месяц.</p>
     </div>
   </div>
-
-  <div class="notice-box" id="zusReminderBox" style="display:none;"></div>
 
   <div class="card" data-cat="period">
     <div class="step-head"><span class="cat-icon cat-period"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.2" width="14" height="12.3" rx="2"/><path d="M3 8h14M6.5 2.5v3M13.5 2.5v3"/></svg></span><h2>Период</h2></div>
@@ -237,10 +269,25 @@
       <button type="button" class="year-nav-btn" id="yearNextBtn" aria-label="Следующий год">›</button>
     </div>
     <div class="month-grid" id="monthGrid"></div>
-    <div class="field" style="max-width:260px; margin-top:16px;">
-      <label for="openingByYearInput">Доход до начала работы с приложением (за этот год)</label>
-      <input type="number" id="openingByYearInput" value="0" step="0.01" min="0">
-      <span class="unit-note">zł — заполните, если начали вести учёт не с января</span>
+    <details class="inline-details">
+      <summary>Начали учёт не с января? Укажите доход за прошлые месяцы</summary>
+      <div class="field" style="max-width:260px; margin-top:12px;">
+        <label for="openingByYearInput">Доход до начала работы с приложением (за этот год)</label>
+        <input type="number" id="openingByYearInput" value="0" step="0.01" min="0">
+        <span class="unit-note">zł</span>
+      </div>
+    </details>
+  </div>
+
+  <!-- Ewidencja / downloads -->
+  <div class="card" data-cat="invoices">
+    <div class="step-head"><span class="cat-icon cat-invoices"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3v9M6.5 8.5L10 12l3.5-3.5"/><path d="M4 14.5V16a1 1 0 001 1h10a1 1 0 001-1v-1.5"/></svg></span><h2>Скачать документы</h2></div>
+    <p class="step-desc" style="margin-left:0;">Ewidencja przychodów — учёт доходов по форме, которую требует закон для рычалта. Храните её (в электронном или бумажном виде) и показывайте при проверке.</p>
+    <div class="actions" style="margin-left:0; margin-top:0;">
+      <button class="action primary" id="printEvidencjaMonthBtn">Эвиденция за месяц (PDF)</button>
+      <button class="action primary" id="printEvidencjaYearBtn">Эвиденция за год (PDF)</button>
+      <button class="action" id="exportCsvBtn">CSV за месяц</button>
+      <button class="action" id="exportYearCsvBtn">CSV за год</button>
     </div>
   </div>
 
@@ -248,43 +295,10 @@
   <!-- ZUS -->
   <div class="card" data-cat="zus">
     <div class="step-head"><span class="cat-icon cat-zus"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2.7l6 2.3v4.6c0 4.1-2.6 6.9-6 8-3.4-1.1-6-3.9-6-8V5l6-2.3z"/><path d="M7.3 10l1.9 1.9L13 8"/></svg></span><h2>ZUS за <span id="zusMonthLabel">— месяц не выбран —</span></h2></div>
-    <p class="step-desc" style="margin-left:0;">Фазу ZUS вы настраиваете один раз во вкладке «Настройки» (или автоматически по дате открытия ИП) — здесь виден результат за месяц и данные для декларации ZUS DRA.</p>
+    <p class="step-desc" style="margin-left:0;">Данные для декларации ZUS DRA (подаётся до 20-го числа следующего месяца через PUE/eZUS).</p>
 
     <div class="hint-box" id="zusPhaseHint" style="margin-left:0;"></div>
 
-    <div class="field-grid">
-      <div class="field">
-        <label for="phaseOverrideSelect">Фаза ZUS только для этого месяца (редко нужно)</label>
-        <select id="phaseOverrideSelect">
-          <option value="">— использовать автоматическую настройку —</option>
-          <option value="start">Льгота на старт</option>
-          <option value="pref">Льготный ZUS</option>
-          <option value="maly">Малый ZUS Plus</option>
-          <option value="full">Полный ZUS</option>
-        </select>
-      </div>
-    </div>
-
-    <p class="step-desc" style="margin-left:0; margin-top:16px;"><strong>Разбивка социального взноса</strong></p>
-    <div class="table-wrap" style="margin-left:0;">
-      <table>
-        <thead><tr><th>Пенсионный</th><th>По инвалидности</th><th>От несч. случаев</th><th>По болезни</th><th>Фонд труда</th><th>Итого</th></tr></thead>
-        <tbody id="socialBreakdownBody"><tr><td colspan="6">—</td></tr></tbody>
-      </table>
-    </div>
-
-    <div class="field-grid" style="margin-top:14px;">
-      <div class="field">
-        <label for="socialInput">Социальный взнос за этот период</label>
-        <input type="number" id="socialInput" value="0" step="0.01" min="0">
-        <span class="unit-note">по умолчанию считается автоматически.
-          <button type="button" class="link-btn" id="socialResetBtn" style="padding:0;">пересчитать автоматически</button></span>
-      </div>
-    </div>
-
-    <div class="hint-box" id="cumulativeHint"></div>
-
-    <p class="step-desc" style="margin-left:0; margin-top:18px;"><strong>Декларация ZUS DRA</strong> — подаётся каждый месяц через PUE/eZUS, срок до 20-го числа следующего месяца</p>
     <div class="hint-box" id="declKodTytulu" style="margin-left:0;"></div>
     <div class="table-wrap" style="margin-left:0; margin-top:10px;">
       <table>
@@ -295,17 +309,47 @@
     </div>
     <div class="hint-box" id="payZusBox" style="margin-left:0; margin-top:14px;"></div>
 
-    <p class="step-desc" style="margin-left:0; margin-top:18px;"><strong>Годовой перерасчёт взноса на медстрахование</strong> — срок до 20 мая</p>
-    <div class="hint-box" id="declAnnualHealth" style="margin-left:0;"></div>
+    <details class="inline-details">
+      <summary>Разбивка социального взноса и ручная корректировка</summary>
+      <div class="table-wrap" style="margin-left:0; margin-top:10px;">
+        <table>
+          <thead><tr><th>Пенсионный</th><th>По инвалидности</th><th>От несч. случаев</th><th>По болезни</th><th>Фонд труда</th><th>Итого</th></tr></thead>
+          <tbody id="socialBreakdownBody"><tr><td colspan="6">—</td></tr></tbody>
+        </table>
+      </div>
+      <div class="field-grid" style="margin-top:14px;">
+        <div class="field">
+          <label for="phaseOverrideSelect">Фаза ZUS только для этого месяца (редко нужно)</label>
+          <select id="phaseOverrideSelect">
+            <option value="">— использовать автоматическую настройку —</option>
+            <option value="start">Льгота на старт</option>
+            <option value="pref">Льготный ZUS</option>
+            <option value="maly">Малый ZUS Plus</option>
+            <option value="full">Полный ZUS</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="socialInput">Социальный взнос за этот период</label>
+          <input type="number" id="socialInput" value="0" step="0.01" min="0">
+          <span class="unit-note">по умолчанию считается автоматически.
+            <button type="button" class="link-btn" id="socialResetBtn" style="padding:0;">пересчитать автоматически</button></span>
+        </div>
+      </div>
+    </details>
+
+    <details class="inline-details">
+      <summary>Годовой перерасчёт взноса на медстрахование (срок до 20 мая)</summary>
+      <div class="hint-box" id="declAnnualHealth" style="margin-left:0; margin-top:10px;"></div>
+    </details>
   </div>
 
   <!-- PIT -->
   <div class="card" data-cat="pit">
-    <div class="step-head"><span class="cat-icon cat-pit"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="7.2"/><path d="M7 13l6-6M7.6 8.1a.7.7 0 100-1.4.7.7 0 000 1.4zM12.4 13.3a.7.7 0 100-1.4.7.7 0 000 1.4z"/></svg></span><h2>Налог PIT-28 (ryczałt) за <span id="pitMonthLabel">— месяц не выбран —</span></h2></div>
-    <p class="step-desc" style="margin-left:0;">Считается отдельно для каждой ставки ryczałt, использованной в счетах этого месяца, пропорционально доле в доходе.</p>
+    <div class="step-head"><span class="cat-icon cat-pit"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="7.2"/><path d="M7 13l6-6M7.6 8.1a.7.7 0 100-1.4.7.7 0 000 1.4zM12.4 13.3a.7.7 0 100-1.4.7.7 0 000 1.4z"/></svg></span><h2>Налог PIT-28 за <span id="pitMonthLabel">— месяц не выбран —</span></h2></div>
+    <p class="step-desc" style="margin-left:0;">Детали расчёта авансового платежа по рычалту.</p>
 
     <ul class="result-list">
-      <li><span>Количество счетов</span><span class="v" id="calcCount">0</span></li>
+      <li><span>Количество фактур</span><span class="v" id="calcCount">0</span></li>
       <li><span>Сумма базы дохода</span><span class="v" id="calcBasis">0,00 zł</span></li>
       <li class="neg"><span>Вычет — социальный взнос</span><span class="v">&minus; <span id="calcSocial">0,00</span> zł</span></li>
       <li class="neg"><span>Вычет — 50% взноса на медстрахование (<span id="calcHealthUsed">0,00</span> zł)</span><span class="v">&minus; <span id="calcHalfZus">0,00</span> zł</span></li>
@@ -322,12 +366,9 @@
       <div class="amount"><span id="calcDue">0</span> zł</div>
     </div>
 
-    <div class="hint-box" id="payTaxBox" style="margin-left:0; margin-top:14px;"></div>
+    <div class="hint-box" id="cumulativeHint"></div>
 
-    <div class="actions" style="margin-left:0;">
-      <button class="action primary" id="exportCsvBtn">Экспорт CSV (этот месяц)</button>
-      <button class="action" id="exportYearCsvBtn">Экспорт CSV (весь год)</button>
-    </div>
+    <div class="hint-box" id="payTaxBox" style="margin-left:0; margin-top:14px;"></div>
   </div>
   </div>
   <!-- /.tax-grid -->
@@ -348,7 +389,7 @@
   </div>
 
   </div>
-  <!-- ============ /TAB: НАЛОГИ ============ -->
+  <!-- ============ /TAB: ДОКУМЕНТЫ ============ -->
 
   <!-- ============ TAB: НАСТРОЙКИ ============ -->
   <div class="tab-panel" id="tabUstawienia" hidden>
@@ -357,15 +398,12 @@
     <div class="app-header-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h12M4 10h12M4 14h12"/><circle cx="7.5" cy="6" r="1.7"/><circle cx="13.5" cy="10" r="1.7"/><circle cx="6" cy="14" r="1.7"/></svg></div>
     <div>
       <h1>Настройки</h1>
-      <p>Вся справочная информация и параметры — заполняете один раз, дальше приложение считает само.</p>
+      <p>Заполняете один раз — дальше приложение считает само.</p>
     </div>
   </div>
 
   <div class="hint-box" style="margin-left:0; margin-bottom:20px;">
-    <strong>Как работает сохранение данных:</strong> всё, что вы здесь введёте, сохраняется автоматически в памяти этого
-    браузера (localStorage) на этом устройстве — заполните данные один раз, при следующем визите они уже будут готовы.
-    Работает без интернета. Чтобы иметь доступ к тем же данным на другом устройстве или сделать резервную копию,
-    регулярно делайте «Копию JSON» в разделе ниже.
+    Все данные сохраняются автоматически в этом браузере, без интернета. Для доступа с другого устройства делайте «Копию JSON» — раздел «Данные приложения» ниже.
   </div>
 
   <div class="settings-layout">
@@ -381,7 +419,7 @@
   <!-- Company profile -->
   <div class="card" data-cat="profile" id="settings-profile">
     <div class="step-head"><span class="cat-icon cat-profile"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.8" y="6.8" width="14.4" height="9.4" rx="1.6"/><path d="M6.8 6.8V5.2A1.6 1.6 0 018.4 3.6h3.2a1.6 1.6 0 011.6 1.6v1.6M2.8 11h14.4"/></svg></span><h2>Данные вашей фирмы</h2></div>
-    <p class="step-desc" style="margin-left:0;">Заполните один раз — будут использоваться в каждом счёте и декларации ZUS.</p>
+    <p class="step-desc" style="margin-left:0;">Заполните один раз — будут использоваться в каждой фактуре и декларации ZUS.</p>
     <div class="field-grid">
       <div class="field"><label for="sellerName">Название фирмы / имя и фамилия</label><input type="text" id="sellerName" placeholder="Jan Kowalski"></div>
       <div class="field"><label for="sellerNip">NIP</label><input type="text" id="sellerNip" placeholder="1234567890"></div>
@@ -389,7 +427,7 @@
       <div class="field"><label for="sellerStreet">Улица и номер дома</label><input type="text" id="sellerStreet" placeholder="ul. Przykładowa 1/2"></div>
       <div class="field"><label for="sellerZipCity">Индекс и город</label><input type="text" id="sellerZipCity" placeholder="00-000 Warszawa"></div>
       <div class="field"><label for="sellerEmail">E-mail (необязательно)</label><input type="email" id="sellerEmail"></div>
-      <div class="field"><label for="businessStartDate">Дата открытия ИП (JDG)</label><input type="date" id="businessStartDate"></div>
+      <div class="field"><label for="businessStartDate">Дата начала деятельности (JDG)</label><input type="date" id="businessStartDate"></div>
       <div class="field"><label for="sellerBank">Номер счёта фирмы — IBAN (необязательно)</label><input type="text" id="sellerBank" placeholder="PL00 0000 0000 0000 0000 0000 0000"></div>
       <div class="field"><label for="sellerBankName">Название банка (необязательно)</label><input type="text" id="sellerBankName" placeholder="PKO BANK POLSKI S.A."></div>
       <div class="field"><label for="sellerBankSwift">SWIFT/BIC (необязательно)</label><input type="text" id="sellerBankSwift" placeholder="BPKOPLPW"></div>
@@ -399,7 +437,7 @@
   <!-- ZUS phase: set once -->
   <div class="card" data-cat="phase" id="settings-phase">
     <div class="step-head"><span class="cat-icon cat-phase"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5V15M9 8.5V15M14 4.5V15"/></svg></span><h2>Фаза ZUS — настройте один раз</h2></div>
-    <p class="step-desc" style="margin-left:0;">Это единственное место, где вы решаете про фазу ZUS. В автоматическом режиме каждый новый месяц сам получит нужную фазу на основе даты открытия ИП (выше).</p>
+    <p class="step-desc" style="margin-left:0;">Настройте один раз — дальше каждый месяц сам получит нужную фазу по дате начала деятельности (выше).</p>
     <div class="field-grid">
       <div class="field">
         <label for="zusPhaseModeSelect">Режим фазы ZUS</label>
@@ -436,8 +474,7 @@
   <!-- Payment destinations -->
   <div class="card" data-cat="payment" id="settings-payment">
     <div class="step-head"><span class="cat-icon cat-payment"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.2L10 3.5l7 4.7"/><rect x="3" y="8.2" width="14" height="7.3" rx="1"/><path d="M6.3 11v2.6M10 11v2.6M13.7 11v2.6"/></svg></span><h2>Куда платить ZUS и налог</h2></div>
-    <p class="step-desc" style="margin-left:0;">Уже несколько лет действуют два отдельных <strong>индивидуальных</strong> номера счетов — один для ZUS, другой для налоговой.
-      Их нельзя вычислить самостоятельно (их присваивают ZUS/Минфин), поэтому впишите их сюда один раз, когда найдёте.</p>
+    <p class="step-desc" style="margin-left:0;">Два отдельных индивидуальных номера счёта — для ZUS и для налоговой. Найдите их один раз и сохраните здесь.</p>
     <div class="field-grid">
       <div class="field">
         <label for="sellerZusAccount">Номер расчётного счёта ZUS (NRS)</label>
@@ -457,7 +494,7 @@
   <!-- ZUS/tax law parameters -->
   <div class="card" data-cat="params" id="settings-params">
     <div class="step-head"><span class="cat-icon cat-params"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h12M4 10h12M4 14h12"/><circle cx="7.5" cy="6" r="1.7"/><circle cx="13.5" cy="10" r="1.7"/><circle cx="6" cy="14" r="1.7"/></svg></span><h2>Параметры ZUS и налога (законодательные значения)</h2></div>
-    <p class="step-desc" style="margin-left:0;">Значения по умолчанию соответствуют законодательству на 2026 г. Меняйте их только если знаете, что ваша ситуация отличается, или когда изменятся правила в следующем году.</p>
+    <p class="step-desc" style="margin-left:0;">Актуальны на 2026 год. Меняйте, только если ваша ситуация отличается от стандартной.</p>
     <div class="field-grid">
       <div class="field">
         <label for="tierModeSelect">Взнос на медстрахование к применению</label>
@@ -523,29 +560,32 @@
     </div>
   </div>
 
-  <footer class="note">
-    <strong>Чего это приложение НЕ делает:</strong> не отправляет счета в KSeF (для этого нужен ваш вход — Profil Zaufany,
-    квалифицированная подпись или токен — через официальное Aplikację Podatnika KSeF либо e-mikrofirmę) и не подаёт
-    декларации PIT-28 или ZUS DRA электронно (их подают через e-Urząd Skarbowy / PUE-eZUS, с собственной
-    аутентификацией). Этот калькулятор считает суммы и ведёт учёт, чтобы у вас были готовые данные для внесения в те системы.<br><br>
-    <strong>Формула налога:</strong> Налогооблагаемая база = сумма базы дохода &minus; социальный взнос (100%, только в
-    льготной или полной фазе ZUS) &minus; 50% уплаченного взноса на медстрахование. Если используется несколько ставок
-    ryczałt, вычеты делятся пропорционально доле каждой ставки в доходе, а налог считается отдельно для каждой и
-    суммируется. Доход нарастающим итогом для порога взноса на медстрахование считается автоматически из суммы всех
-    месяцев года, сохранённых в приложении, плюс возможный доход до начала работы с ним.<br><br>
-    <strong>Значения по умолчанию (законодательство 2026 г.):</strong> взнос на медстрахование ryczałt — 498,35 zł / 830,58 zł
-    / 1495,04 zł (пороги 60 000 zł и 300 000 zł, 9% от соответственно 60%/100%/180% средней зарплаты за IV кв. 2025 =
-    9228,64 zł); льгота на старт — 6 полных календарных месяцев без социальных взносов (только медицинский), а если ИП
-    открыт не с 1-го числа месяца — 7 месяцев; льготный ZUS — 24 месяца, база 30% минимальной зарплаты (1441,80 zł);
-    Малый ZUS Plus — до 36 месяцев из каждых 60, база считается от дохода за прошлый год (для ryczałt: 50% дохода),
-    доступен при доходе за прошлый год до 120 000 zł; полный ZUS — база 60% прогнозируемой средней зарплаты (5652,60 zł).
-    Социальные взносы считаются по стандартным ставкам: пенсионный 19,52%, по инвалидности 8%, от несчастных случаев
-    1,67% (зависит от PKD), по болезни добровольно 2,45%, Фонд труда 2,45% (когда база ≥ минимальной зарплаты). Ваша
-    ситуация может отличаться — все суммы и ставки можно изменить вручную выше. Расчёт носит вспомогательный характер
-    и не заменяет проверку бухгалтером.<br><br>
-    <strong>Сохранение данных:</strong> всё сохраняется автоматически в памяти браузера (localStorage) на этом устройстве.
-    Регулярно делайте копию JSON, чтобы не потерять данные при очистке браузера и иметь возможность работать на другом устройстве.
-  </footer>
+  <details class="notice-details">
+    <summary>Методика расчёта, значения по умолчанию и чего приложение не делает</summary>
+    <footer class="note">
+      <strong>Чего это приложение НЕ делает:</strong> не отправляет фактуры в KSeF (для этого нужен ваш вход — Profil Zaufany,
+      квалифицированная подпись или токен — через официальное Aplikację Podatnika KSeF либо e-mikrofirmę) и не подаёт
+      декларации PIT-28 или ZUS DRA электронно (их подают через e-Urząd Skarbowy / PUE-eZUS, с собственной
+      аутентификацией). Этот калькулятор считает суммы и ведёт учёт, чтобы у вас были готовые данные для внесения в те системы.<br><br>
+      <strong>Формула налога:</strong> Налогооблагаемая база = сумма базы дохода &minus; социальный взнос (100%, только в
+      льготной или полной фазе ZUS) &minus; 50% уплаченного взноса на медстрахование. Если используется несколько ставок
+      ryczałt, вычеты делятся пропорционально доле каждой ставки в доходе, а налог считается отдельно для каждой и
+      суммируется. Доход нарастающим итогом для порога взноса на медстрахование считается автоматически из суммы всех
+      месяцев года, сохранённых в приложении, плюс возможный доход до начала работы с ним.<br><br>
+      <strong>Значения по умолчанию (законодательство 2026 г.):</strong> взнос на медстрахование ryczałt — 498,35 zł / 830,58 zł
+      / 1495,04 zł (пороги 60 000 zł и 300 000 zł, 9% от соответственно 60%/100%/180% средней зарплаты за IV кв. 2025 =
+      9228,64 zł); льгота на старт — 6 полных календарных месяцев без социальных взносов (только медицинский), а если ИП
+      открыт не с 1-го числа месяца — 7 месяцев; льготный ZUS — 24 месяца, база 30% минимальной зарплаты (1441,80 zł);
+      Малый ZUS Plus — до 36 месяцев из каждых 60, база считается от дохода за прошлый год (для ryczałt: 50% дохода),
+      доступен при доходе за прошлый год до 120 000 zł; полный ZUS — база 60% прогнозируемой средней зарплаты (5652,60 zł).
+      Социальные взносы считаются по стандартным ставкам: пенсионный 19,52%, по инвалидности 8%, от несчастных случаев
+      1,67% (зависит от PKD), по болезни добровольно 2,45%, Фонд труда 2,45% (когда база ≥ минимальной зарплаты). Ваша
+      ситуация может отличаться — все суммы и ставки можно изменить вручную выше. Расчёт носит вспомогательный характер
+      и не заменяет проверку бухгалтером.<br><br>
+      <strong>Сохранение данных:</strong> всё сохраняется автоматически в памяти браузера (localStorage) на этом устройстве.
+      Регулярно делайте копию JSON, чтобы не потерять данные при очистке браузера и иметь возможность работать на другом устройстве.
+    </footer>
+  </details>
 
   </div>
   <!-- /.settings-content -->

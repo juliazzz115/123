@@ -255,10 +255,12 @@
 
   // ---------- tabs ----------
   function switchTab(tab){
+    document.getElementById('tabGlavnaya').hidden = tab !== 'glavnaya';
     document.getElementById('tabSchety').hidden = tab !== 'schety';
-    document.getElementById('tabNalogi').hidden = tab !== 'nalogi';
+    document.getElementById('tabDokumenty').hidden = tab !== 'dokumenty';
     document.getElementById('tabUstawienia').hidden = tab !== 'ustawienia';
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tab));
+    window.scrollTo({top:0});
   }
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
@@ -714,6 +716,7 @@ ${itemLines}
     renderYearSummary();
     renderServiceDatalist();
     renderBuyerQuickPick();
+    updateSummary();
   });
 
   // ---------- KSeF XML import / parsing ----------
@@ -1114,6 +1117,19 @@ ${itemLines}
 
     renderDeclaration();
     renderPaymentInfo();
+    renderHome();
+  }
+
+  function computeZusTotal(key){
+    if(!key || !state.periods[key]) return 0;
+    const c = computeForPeriod(key);
+    const phase = c.phase;
+    const sb = computeSocialBreakdown(phase, key);
+    let total = c.healthUsed;
+    if(phase !== 'start'){
+      total += sb.emerytalna + sb.rentowa + sb.wypadkowe + (sb.chorobowe>0?sb.chorobowe:0) + (sb.fp>0?sb.fp:0);
+    }
+    return round2(total);
   }
 
   function renderPaymentInfo(){
@@ -1123,16 +1139,205 @@ ${itemLines}
     const zusAcc = (state.profile.zusAccount || '').trim();
     const taxAcc = (state.profile.taxMicroAccount || '').trim();
     const key = state.activePeriod;
+    const zusTotal = computeZusTotal(key);
 
     zusBox.innerHTML = zusAcc
-      ? `<strong>Куда платить:</strong> одним переводом на ваш номер расчётного счёта (NRS): <strong>${esc(zusAcc)}</strong>. Это покрывает все взносы сразу (социальные + медицинский + Фонд труда). Срок: до 20-го числа следующего месяца.`
-      : `<strong>Куда платить:</strong> у вас ещё не сохранён номер расчётного счёта (NRS). Заполните его во вкладке <strong>Настройки → Куда платить ZUS и налог</strong>. Срок: до 20-го числа следующего месяца.`;
+      ? `<strong>К оплате: ${fmt(zusTotal)} zł</strong> на счёт NRS <strong>${esc(zusAcc)}</strong>
+         <button type="button" class="copy-btn" data-copy="${esc(zusAcc)}">Копировать счёт</button>
+         <button type="button" class="copy-btn" data-copy="${fmt(zusTotal)}">Копировать сумму</button>
+         <br><span class="unit-note">Покрывает все взносы сразу. Срок: до 20-го числа следующего месяца.</span>`
+      : `<strong>Куда платить:</strong> сохраните номер счёта ZUS (NRS) в <strong>Настройки → Куда платить</strong>. Срок: до 20-го числа следующего месяца.`;
 
     const due = key ? computeForPeriod(key).due : 0;
     taxBox.innerHTML = taxAcc
-      ? `<strong>Куда платить:</strong> ${fmt(due)} zł на ваш налоговый микросчёт: <strong>${esc(taxAcc)}</strong>. В назначении платежа укажите «PIT-28» и период${key ? ' ('+esc(monthLabel(key))+')' : ''}. Срок: до 20-го числа месяца, следующего за месяцем дохода.`
-      : `<strong>Куда платить:</strong> у вас ещё не сохранён налоговый микросчёт. Заполните его во вкладке <strong>Настройки → Куда платить ZUS и налог</strong>. Срок: до 20-го числа месяца, следующего за месяцем дохода.`;
+      ? `<strong>К оплате: ${fmt(due)} zł</strong> на налоговый микросчёт <strong>${esc(taxAcc)}</strong>
+         <button type="button" class="copy-btn" data-copy="${esc(taxAcc)}">Копировать счёт</button>
+         <button type="button" class="copy-btn" data-copy="${fmt(due)}">Копировать сумму</button>
+         <br><span class="unit-note">Укажите «PIT-28» и период${key ? ' ('+esc(monthLabel(key))+')' : ''}. Срок: до 20-го числа следующего месяца.</span>`
+      : `<strong>Куда платить:</strong> сохраните налоговый микросчёт в <strong>Настройки → Куда платить</strong>. Срок: до 20-го числа следующего месяца.`;
   }
+
+  document.addEventListener('click', e => {
+    const btn = e.target.closest('.copy-btn');
+    if(!btn) return;
+    const val = btn.dataset.copy;
+    navigator.clipboard.writeText(val).then(() => {
+      const old = btn.textContent;
+      btn.textContent = 'Скопировано!';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = old; btn.classList.remove('copied'); }, 1400);
+    }).catch(() => {});
+  });
+
+  // ---------- Главная: пошаговый экран месяца ----------
+  const MONTHS_RU_GEN = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+
+  function payDeadlineLabel(key){
+    const [y,m] = key.split('-').map(Number);
+    const d = new Date(y, m, 20); // 20-е число следующего месяца
+    return `до 20 ${MONTHS_RU_GEN[d.getMonth()]} ${d.getFullYear()}`;
+  }
+
+  function renderHome(){
+    const key = state.activePeriod || currentMonthKey();
+    document.getElementById('homeMonthLabel').textContent = monthLabel(key);
+
+    // онбординг: пока не заполнены данные — показываем чеклист
+    const p = state.profile;
+    const haveProfile = !!(p.name && p.nip);
+    const haveStart = !!p.businessStart;
+    const haveAccounts = !!((p.zusAccount||'').trim() && (p.taxMicroAccount||'').trim());
+    const onb = document.getElementById('onboardingCard');
+    if(!haveProfile || !haveStart){
+      onb.style.display = 'block';
+      const mark = ok => ok ? '<span style="color:var(--green);font-weight:700;">✓ готово</span>' : '<span style="color:var(--muted);">— не заполнено</span>';
+      document.getElementById('onboardingList').innerHTML =
+        `<li><span>1. Название фирмы и NIP</span><span class="v">${mark(haveProfile)}</span></li>` +
+        `<li><span>2. Дата начала деятельности</span><span class="v">${mark(haveStart)}</span></li>` +
+        `<li><span>3. Номера счетов для оплаты ZUS и налога</span><span class="v">${mark(haveAccounts)}</span></li>`;
+    } else {
+      onb.style.display = 'none';
+    }
+
+    // строка про фазу ZUS и когда льгота закончится
+    const phase = getEffectivePhase(key);
+    const phaseLine = document.getElementById('homePhaseLine');
+    let phaseHtml = `Фаза ZUS в этом месяце: <strong>${PHASE_LABELS[phase]}</strong>`;
+    if(state.settings.zusPhaseMode === 'auto'){
+      const info = getPhaseTransitionInfo();
+      if(info){
+        if(phase === 'start') phaseHtml += ` · действует до ${formatDateRu(info.ulgaEnd)}, потом льготный ZUS — приложение напомнит подать заявление`;
+        else if(phase === 'pref') phaseHtml += ` · действует до ${formatDateRu(info.prefEnd)}, потом полный ZUS`;
+      } else {
+        phaseHtml += ' · укажите дату начала деятельности в Настройках, чтобы льготы считались автоматически';
+      }
+    }
+    phaseLine.innerHTML = phaseHtml;
+
+    // шаги месяца
+    const period = state.periods[key];
+    const count = period ? period.rows.filter(r => r.basis !== 0 || r.net !== 0).length : 0;
+    const hasInvoices = !!(period && period.rows.length);
+    const c = period ? computeForPeriod(key) : null;
+    const zusTotal = computeZusTotal(key);
+    const due = c ? c.due : 0;
+    const deadline = payDeadlineLabel(key);
+    const zusAcc = (p.zusAccount||'').trim();
+    const taxAcc = (p.taxMicroAccount||'').trim();
+
+    const noAccountNote = which => `<div class="home-note">Сохраните ${which} в <button type="button" class="link-btn" data-home-goto="ustawienia">Настройках → Куда платить</button> — тогда здесь будут готовые реквизиты.</div>`;
+    const accountLine = (acc, amount) => `
+      <div class="home-pay-line">
+        <span class="home-acc">${esc(acc)}</span>
+        <span>
+          <button type="button" class="copy-btn" data-copy="${esc(acc)}">Копировать счёт</button>
+          <button type="button" class="copy-btn" data-copy="${fmt(amount)}">Копировать сумму</button>
+        </span>
+      </div>`;
+
+    let html = '';
+
+    // Шаг 1 — фактуры
+    if(hasInvoices){
+      html += `
+      <div class="home-step done">
+        <div class="step-circle">✓</div>
+        <div class="home-step-body">
+          <div class="home-step-title">Фактуры за ${esc(monthLabel(key))} выставлены</div>
+          <div class="home-step-sub">${count} шт. · доход ${fmt(c.sumBasis)} zł · <button type="button" class="link-btn" data-home-goto="schety">посмотреть</button> · <button type="button" class="link-btn" data-home-action="new-invoice">+ ещё одна</button></div>
+        </div>
+      </div>`;
+    } else {
+      html += `
+      <div class="home-step">
+        <div class="step-circle">1</div>
+        <div class="home-step-body">
+          <div class="home-step-title">Сначала выставьте фактуру за ${esc(monthLabel(key))}</div>
+          <div class="home-step-sub">Как только фактура будет выставлена, здесь появятся суммы ZUS и налога к оплате.</div>
+          <div class="actions" style="margin-top:12px;">
+            <button class="action primary" data-home-action="new-invoice">+ Выставить фактуру</button>
+          </div>
+        </div>
+      </div>`;
+    }
+
+    const locked = hasInvoices ? '' : ' locked';
+
+    // Шаг 2 — ZUS
+    html += `
+    <div class="home-step${locked}">
+      <div class="step-circle">2</div>
+      <div class="home-step-body">
+        <div class="home-step-title">Оплатите ZUS <span class="home-deadline">${deadline}</span></div>
+        ${hasInvoices ? `
+          <div class="home-sum">${fmt(zusTotal)} zł</div>
+          <div class="home-step-sub">Один перевод — покрывает все взносы (социальные + медицинский). Затем подайте декларацию ZUS DRA через PUE/eZUS — данные готовы во вкладке <button type="button" class="link-btn" data-home-goto="dokumenty">Документы</button>.</div>
+          ${zusAcc ? accountLine(zusAcc, zusTotal) : noAccountNote('номер счёта ZUS (NRS)')}
+        ` : `<div class="home-step-sub">Сначала выставьте фактуру.</div>`}
+      </div>
+    </div>`;
+
+    // Шаг 3 — налог
+    html += `
+    <div class="home-step${locked}">
+      <div class="step-circle">3</div>
+      <div class="home-step-body">
+        <div class="home-step-title">Оплатите налог PIT-28 <span class="home-deadline">${deadline}</span></div>
+        ${hasInvoices ? `
+          <div class="home-sum">${fmt(due)} zł</div>
+          ${due > 0
+            ? `<div class="home-step-sub">Перевод на ваш налоговый микросчёт, в назначении платежа: «PIT-28, ${esc(monthLabel(key))}». Детали расчёта — во вкладке <button type="button" class="link-btn" data-home-goto="dokumenty">Документы</button>.</div>
+               ${taxAcc ? accountLine(taxAcc, due) : noAccountNote('налоговый микросчёт')}`
+            : `<div class="home-step-sub">В этом месяце налог к оплате — 0 zł (вычеты покрыли базу). Платить не нужно.</div>`}
+        ` : `<div class="home-step-sub">Сначала выставьте фактуру.</div>`}
+      </div>
+    </div>`;
+
+    // Шаг 4 — документы
+    html += `
+    <div class="home-step${locked}">
+      <div class="step-circle">4</div>
+      <div class="home-step-body">
+        <div class="home-step-title">Сохраните документы за месяц</div>
+        ${hasInvoices ? `
+          <div class="home-step-sub">Эвиденция доходов — обязательный учёт по закону. Скачайте PDF и храните.</div>
+          <div class="actions" style="margin-top:12px;">
+            <button class="action" data-home-action="evidencja">Эвиденция за месяц (PDF)</button>
+            <button class="action" data-home-goto="dokumenty">Все документы</button>
+          </div>
+        ` : `<div class="home-step-sub">Сначала выставьте фактуру.</div>`}
+      </div>
+    </div>`;
+
+    document.getElementById('homeSteps').innerHTML = html;
+  }
+
+  document.getElementById('tabGlavnaya').addEventListener('click', e => {
+    const goto = e.target.closest('[data-home-goto]');
+    if(goto){ switchTab(goto.dataset.homeGoto); return; }
+    const act = e.target.closest('[data-home-action]');
+    if(!act) return;
+    if(act.dataset.homeAction === 'new-invoice'){
+      switchTab('schety');
+      resetInvoiceForm();
+      showInvoiceForm();
+    } else if(act.dataset.homeAction === 'evidencja'){
+      document.getElementById('printEvidencjaMonthBtn').click();
+    }
+  });
+
+  document.getElementById('onboardingGoBtn').addEventListener('click', () => switchTab('ustawienia'));
+
+  function shiftHomeMonth(delta){
+    const key = state.activePeriod || currentMonthKey();
+    const [y,m] = key.split('-').map(Number);
+    const d = new Date(y, m-1+delta, 1);
+    const nk = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    ensurePeriod(nk);
+    setActivePeriod(nk);
+  }
+  document.getElementById('homePrevMonth').addEventListener('click', () => shiftHomeMonth(-1));
+  document.getElementById('homeNextMonth').addEventListener('click', () => shiftHomeMonth(1));
 
   function computeAnnualHealthReconciliation(year){
     const keys = Object.keys(state.periods).filter(k => k.slice(0,4) === year).sort();
@@ -1308,6 +1513,7 @@ ${itemLines}
       saveState();
       if(id === 'businessStartDate'){ renderZusModeHint(); refreshAllZusDependent(); }
       if(id === 'sellerZusAccount' || id === 'sellerTaxMicroAccount') renderPaymentInfo();
+      renderHome();
     });
   });
 
@@ -1366,6 +1572,113 @@ ${itemLines}
     csv += ['Итого', fmt(sumRev), fmt(sumBase), sumTax].join(';') + '\n';
 
     downloadCsv(csv, 'nalog-god-' + year + '.csv');
+  });
+
+  // ---------- ewidencja przychodów (PDF via print) ----------
+  function buildEvidencjaDoc(entries, periodLabel, groupByMonth){
+    const usedRates = Array.from(new Set(entries.map(e => e.row.rate))).sort((a,b)=>a-b);
+    const s = state.profile;
+    const addr = [s.street, s.zipCity].filter(Boolean).join(', ');
+    const idLine = [s.nip ? 'NIP ' + s.nip : '', s.pesel ? 'PESEL ' + s.pesel : ''].filter(Boolean).join(' · ');
+    const colCount = 3 + usedRates.length + 1;
+
+    function buildRows(list){
+      let lp = 1;
+      let rowsHtml = '';
+      const totals = {}; usedRates.forEach(r => totals[r]=0);
+      let grand = 0;
+      list.forEach(({row}) => {
+        rowsHtml += `<tr><td>${lp++}</td><td>${esc(row.date)}</td><td>${esc(row.number)}</td>` +
+          usedRates.map(r => `<td class="num">${row.rate===r ? fmt(row.basis) : ''}</td>`).join('') +
+          `<td class="num razem">${fmt(row.basis)}</td></tr>`;
+        totals[row.rate] = (totals[row.rate]||0) + row.basis;
+        grand += row.basis;
+      });
+      return { rowsHtml, totals, grand };
+    }
+
+    let bodyHtml = '';
+    const grandTotals = {}; usedRates.forEach(r=>grandTotals[r]=0);
+    let grandTotal = 0;
+
+    if(groupByMonth){
+      const byMonth = {};
+      entries.forEach(e => { (byMonth[e.periodKey] = byMonth[e.periodKey]||[]).push(e); });
+      Object.keys(byMonth).sort().forEach(mk => {
+        const list = byMonth[mk].slice().sort((a,b)=> (a.row.date||'').localeCompare(b.row.date||''));
+        const { rowsHtml, totals, grand } = buildRows(list);
+        bodyHtml += `<tr class="month-row"><td colspan="${colCount}">${esc(monthLabel(mk))}</td></tr>` + rowsHtml;
+        bodyHtml += `<tr class="subtotal-row"><td colspan="3">Итого за ${esc(monthLabel(mk))}</td>` +
+          usedRates.map(r => `<td class="num">${fmt(totals[r]||0)}</td>`).join('') +
+          `<td class="num">${fmt(grand)}</td></tr>`;
+        usedRates.forEach(r => grandTotals[r] += totals[r]||0);
+        grandTotal += grand;
+      });
+    } else {
+      const list = entries.slice().sort((a,b)=> (a.row.date||'').localeCompare(b.row.date||''));
+      const built = buildRows(list);
+      bodyHtml = built.rowsHtml;
+      usedRates.forEach(r => grandTotals[r] = built.totals[r]||0);
+      grandTotal = built.grand;
+    }
+
+    const totalRow = `<tr class="total-row"><td colspan="3">RAZEM / ИТОГО</td>` +
+      usedRates.map(r => `<td class="num">${fmt(grandTotals[r]||0)}</td>`).join('') +
+      `<td class="num">${fmt(grandTotal)}</td></tr>`;
+
+    return `<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><title>Ewidencja przychodów — ${esc(periodLabel)}</title>
+<style>
+  *{box-sizing:border-box;}
+  body{font-family: Arial, Helvetica, sans-serif; color:#111; margin:28px; font-size:12px;}
+  h1{font-size:16px; margin:0 0 4px;}
+  .sub{color:#444; font-size:11px; margin:0 0 2px;}
+  .meta{margin: 14px 0 18px; font-size:11.5px; color:#222;}
+  table{width:100%; border-collapse: collapse; margin-top:10px;}
+  th, td{border:1px solid #888; padding:4px 6px; font-size:11px;}
+  th{background:#eee; text-align:center; font-weight:700;}
+  td.num{text-align:right; font-variant-numeric: tabular-nums;}
+  tr.month-row td{background:#f3f3f3; font-weight:700;}
+  tr.subtotal-row td{font-weight:700; background:#fafafa;}
+  tr.total-row td{font-weight:800; background:#e4e4e4; border-top:2px solid #333;}
+  .footer-note{margin-top:22px; font-size:10px; color:#555;}
+  @media print{ body{margin:12mm;} }
+</style></head><body>
+<h1>Ewidencja przychodów (ryczałt od przychodów ewidencjonowanych)</h1>
+<p class="sub">${esc(s.name||'—')}${idLine ? ' · '+esc(idLine) : ''}${addr ? ' · '+esc(addr) : ''}</p>
+<div class="meta">Okres: <strong>${esc(periodLabel)}</strong> &nbsp;·&nbsp; Wygenerowano: ${esc(formatDateRu(new Date()))}</div>
+<table>
+  <thead><tr><th>Lp.</th><th>Data</th><th>Nr dowodu</th>${usedRates.map(r=>`<th>Stawka ${r}%</th>`).join('')}<th>Razem</th></tr></thead>
+  <tbody>${bodyHtml}${totalRow}</tbody>
+</table>
+<p class="footer-note">Wygenerowano automatycznie na podstawie zapisanych faktur. Ewidencja pomocnicza — nie zastępuje weryfikacji księgowej.</p>
+</body></html>`;
+  }
+
+  function openPrintDoc(html){
+    const w = window.open('', '_blank');
+    if(!w){ alert('Разрешите всплывающие окна для этого сайта, чтобы напечатать документ.'); return; }
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+    w.focus();
+    setTimeout(() => { w.print(); }, 350);
+  }
+
+  document.getElementById('printEvidencjaMonthBtn').addEventListener('click', () => {
+    const key = state.activePeriod;
+    if(!key || !state.periods[key] || !state.periods[key].rows.length){ alert('Нет счетов за этот месяц.'); return; }
+    const entries = state.periods[key].rows.map(row => ({row, periodKey:key}));
+    openPrintDoc(buildEvidencjaDoc(entries, monthLabel(key), false));
+  });
+
+  document.getElementById('printEvidencjaYearBtn').addEventListener('click', () => {
+    if(!state.activePeriod){ alert('Год не выбран.'); return; }
+    const year = state.activePeriod.slice(0,4);
+    const keys = Object.keys(state.periods).filter(k => k.slice(0,4) === year).sort();
+    const entries = [];
+    keys.forEach(k => state.periods[k].rows.forEach(row => entries.push({row, periodKey:k})));
+    if(!entries.length){ alert('Нет счетов за этот год.'); return; }
+    openPrintDoc(buildEvidencjaDoc(entries, year+' год', true));
   });
 
   document.getElementById('exportJsonBtn').addEventListener('click', () => {
