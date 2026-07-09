@@ -36,26 +36,29 @@
   <div class="tab-panel" id="tabSchety">
 
   <div class="app-header">
-    <h1>Счета</h1>
-    <p>Все выставленные и загруженные счета в одном списке. Выставляйте новые, дублируйте старые, фильтруйте и смотрите итоги.</p>
+    <div class="app-header-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 2.5h10v15l-2.2-1.4L10.6 17.5l-2.2-1.4-2.2 1.4L4 16.1V2.5z"/><path d="M7 6.5h6M7 9.5h6M7 12.5h3.5"/></svg></div>
+    <div>
+      <h1>Счета</h1>
+      <p>Все выставленные и загруженные счета в одном списке. Выставляйте новые, дублируйте старые, фильтруйте и смотрите итоги.</p>
+    </div>
   </div>
 
   <div class="stats-row">
     <div class="stat-tile">
-      <span class="stat-value" id="statYear">0,00 zł</span>
-      <span class="stat-label" id="statYearLabel">Доход с начала года</span>
+      <div class="stat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14l5-5 3 3 6-7"/><path d="M13 5h4v4"/></svg></div>
+      <div class="stat-body"><span class="stat-value" id="statYear">0,00 zł</span><span class="stat-label" id="statYearLabel">Доход с начала года</span></div>
     </div>
     <div class="stat-tile">
-      <span class="stat-value" id="statFiltered">0,00 zł</span>
-      <span class="stat-label">Доход по фильтру</span>
+      <div class="stat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h14l-5.5 6.5V16l-3-1.6v-3.9L3 4z"/></svg></div>
+      <div class="stat-body"><span class="stat-value" id="statFiltered">0,00 zł</span><span class="stat-label">Доход по фильтру</span></div>
     </div>
     <div class="stat-tile">
-      <span class="stat-value" id="statCount">0</span>
-      <span class="stat-label">Счетов по фильтру</span>
+      <div class="stat-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3l-1.4 14M13.4 3 12 17M3.5 7.5h13M3 12.5h13"/></svg></div>
+      <div class="stat-body"><span class="stat-value" id="statCount">0</span><span class="stat-label">Счетов по фильтру</span></div>
     </div>
   </div>
 
-  <div class="card">
+  <div class="card" data-cat="invoices">
     <div class="filters-row">
       <div class="field">
         <label for="filterYear">Год</label>
@@ -115,8 +118,8 @@
   </div>
 
   <!-- Invoice creation form -->
-  <div class="card" id="invoiceFormCard" style="display:none;">
-    <div class="step-head"><h2>Новый счёт</h2></div>
+  <div class="card" id="invoiceFormCard" data-cat="invoices" style="display:none;">
+    <div class="step-head"><span class="cat-icon cat-invoices"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 2.5h10v15l-2.2-1.4L10.6 17.5l-2.2-1.4-2.2 1.4L4 16.1V2.5z"/><path d="M7 6.5h6M7 9.5h6M7 12.5h3.5"/></svg></span><h2>Новый счёт</h2></div>
     <p class="step-desc" style="margin-left:0;">Счёт попадёт в список того месяца, на который приходится дата выставления. Покупателя и услуги из прошлых счетов можно выбрать из списка ниже.</p>
 
     <div class="field-grid">
@@ -217,14 +220,17 @@
   <div class="tab-panel" id="tabNalogi" hidden>
 
   <div class="app-header">
-    <h1>Налоги</h1>
-    <p>ZUS и PIT-28 (ryczałt) считаются отдельно для каждого месяца. Выберите месяц ниже.</p>
+    <div class="app-header-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2.7l6 2.3v4.6c0 4.1-2.6 6.9-6 8-3.4-1.1-6-3.9-6-8V5l6-2.3z"/><path d="M7.3 10l1.9 1.9L13 8"/></svg></div>
+    <div>
+      <h1>Налоги</h1>
+      <p>ZUS и PIT-28 (ryczałt) считаются отдельно для каждого месяца. Выберите месяц ниже.</p>
+    </div>
   </div>
 
   <div class="notice-box" id="zusReminderBox" style="display:none;"></div>
 
-  <div class="card">
-    <div class="step-head"><h2>Период</h2></div>
+  <div class="card" data-cat="period">
+    <div class="step-head"><span class="cat-icon cat-period"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.2" width="14" height="12.3" rx="2"/><path d="M3 8h14M6.5 2.5v3M13.5 2.5v3"/></svg></span><h2>Период</h2></div>
     <div class="year-switcher">
       <button type="button" class="year-nav-btn" id="yearPrevBtn" aria-label="Предыдущий год">‹</button>
       <span class="year-label" id="yearLabel">2026</span>
@@ -238,9 +244,10 @@
     </div>
   </div>
 
+  <div class="tax-grid">
   <!-- ZUS -->
-  <div class="card">
-    <div class="step-head"><h2>ZUS за <span id="zusMonthLabel">— месяц не выбран —</span></h2></div>
+  <div class="card" data-cat="zus">
+    <div class="step-head"><span class="cat-icon cat-zus"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2.7l6 2.3v4.6c0 4.1-2.6 6.9-6 8-3.4-1.1-6-3.9-6-8V5l6-2.3z"/><path d="M7.3 10l1.9 1.9L13 8"/></svg></span><h2>ZUS за <span id="zusMonthLabel">— месяц не выбран —</span></h2></div>
     <p class="step-desc" style="margin-left:0;">Фазу ZUS вы настраиваете один раз во вкладке «Настройки» (или автоматически по дате открытия ИП) — здесь виден результат за месяц и данные для декларации ZUS DRA.</p>
 
     <div class="hint-box" id="zusPhaseHint" style="margin-left:0;"></div>
@@ -293,8 +300,8 @@
   </div>
 
   <!-- PIT -->
-  <div class="card">
-    <div class="step-head"><h2>Налог PIT-28 (ryczałt) за <span id="pitMonthLabel">— месяц не выбран —</span></h2></div>
+  <div class="card" data-cat="pit">
+    <div class="step-head"><span class="cat-icon cat-pit"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="7.2"/><path d="M7 13l6-6M7.6 8.1a.7.7 0 100-1.4.7.7 0 000 1.4zM12.4 13.3a.7.7 0 100-1.4.7.7 0 000 1.4z"/></svg></span><h2>Налог PIT-28 (ryczałt) за <span id="pitMonthLabel">— месяц не выбран —</span></h2></div>
     <p class="step-desc" style="margin-left:0;">Считается отдельно для каждой ставки ryczałt, использованной в счетах этого месяца, пропорционально доле в доходе.</p>
 
     <ul class="result-list">
@@ -321,8 +328,12 @@
       <button class="action primary" id="exportCsvBtn">Экспорт CSV (этот месяц)</button>
       <button class="action" id="exportYearCsvBtn">Экспорт CSV (весь год)</button>
     </div>
+  </div>
+  </div>
+  <!-- /.tax-grid -->
 
-    <p class="step-desc" style="margin-left:0; margin-top:22px;"><strong>Годовой итог</strong></p>
+  <div class="card" data-cat="pit">
+    <div class="step-head"><span class="cat-icon cat-pit"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3l-1.4 14M13.4 3 12 17M3.5 7.5h13M3 12.5h13"/></svg></span><h2>Годовой итог</h2></div>
     <div class="table-wrap" style="margin-left:0;">
       <table id="yearSummaryTable">
         <thead>
@@ -343,8 +354,11 @@
   <div class="tab-panel" id="tabUstawienia" hidden>
 
   <div class="app-header">
-    <h1>Настройки</h1>
-    <p>Вся справочная информация и параметры — заполняете один раз, дальше приложение считает само.</p>
+    <div class="app-header-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h12M4 10h12M4 14h12"/><circle cx="7.5" cy="6" r="1.7"/><circle cx="13.5" cy="10" r="1.7"/><circle cx="6" cy="14" r="1.7"/></svg></div>
+    <div>
+      <h1>Настройки</h1>
+      <p>Вся справочная информация и параметры — заполняете один раз, дальше приложение считает само.</p>
+    </div>
   </div>
 
   <div class="hint-box" style="margin-left:0; margin-bottom:20px;">
@@ -354,9 +368,19 @@
     регулярно делайте «Копию JSON» в разделе ниже.
   </div>
 
+  <div class="settings-layout">
+  <nav class="settings-nav">
+    <a class="settings-nav-link cat-profile" href="#settings-profile"><span class="dot"></span>Данные фирмы</a>
+    <a class="settings-nav-link cat-phase" href="#settings-phase"><span class="dot"></span>Фаза ZUS</a>
+    <a class="settings-nav-link cat-payment" href="#settings-payment"><span class="dot"></span>Куда платить</a>
+    <a class="settings-nav-link cat-params" href="#settings-params"><span class="dot"></span>Параметры</a>
+    <a class="settings-nav-link cat-data" href="#settings-data"><span class="dot"></span>Данные приложения</a>
+  </nav>
+  <div class="settings-content">
+
   <!-- Company profile -->
-  <div class="card settings-card" id="step-profile">
-    <div class="step-head"><h2>Данные вашей фирмы</h2></div>
+  <div class="card" data-cat="profile" id="settings-profile">
+    <div class="step-head"><span class="cat-icon cat-profile"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.8" y="6.8" width="14.4" height="9.4" rx="1.6"/><path d="M6.8 6.8V5.2A1.6 1.6 0 018.4 3.6h3.2a1.6 1.6 0 011.6 1.6v1.6M2.8 11h14.4"/></svg></span><h2>Данные вашей фирмы</h2></div>
     <p class="step-desc" style="margin-left:0;">Заполните один раз — будут использоваться в каждом счёте и декларации ZUS.</p>
     <div class="field-grid">
       <div class="field"><label for="sellerName">Название фирмы / имя и фамилия</label><input type="text" id="sellerName" placeholder="Jan Kowalski"></div>
@@ -373,8 +397,8 @@
   </div>
 
   <!-- ZUS phase: set once -->
-  <div class="card settings-card">
-    <div class="step-head"><h2>Фаза ZUS — настройте один раз</h2></div>
+  <div class="card" data-cat="phase" id="settings-phase">
+    <div class="step-head"><span class="cat-icon cat-phase"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5V15M9 8.5V15M14 4.5V15"/></svg></span><h2>Фаза ZUS — настройте один раз</h2></div>
     <p class="step-desc" style="margin-left:0;">Это единственное место, где вы решаете про фазу ZUS. В автоматическом режиме каждый новый месяц сам получит нужную фазу на основе даты открытия ИП (выше).</p>
     <div class="field-grid">
       <div class="field">
@@ -410,8 +434,8 @@
   </div>
 
   <!-- Payment destinations -->
-  <div class="card settings-card">
-    <div class="step-head"><h2>Куда платить ZUS и налог</h2></div>
+  <div class="card" data-cat="payment" id="settings-payment">
+    <div class="step-head"><span class="cat-icon cat-payment"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.2L10 3.5l7 4.7"/><rect x="3" y="8.2" width="14" height="7.3" rx="1"/><path d="M6.3 11v2.6M10 11v2.6M13.7 11v2.6"/></svg></span><h2>Куда платить ZUS и налог</h2></div>
     <p class="step-desc" style="margin-left:0;">Уже несколько лет действуют два отдельных <strong>индивидуальных</strong> номера счетов — один для ZUS, другой для налоговой.
       Их нельзя вычислить самостоятельно (их присваивают ZUS/Минфин), поэтому впишите их сюда один раз, когда найдёте.</p>
     <div class="field-grid">
@@ -431,8 +455,8 @@
   </div>
 
   <!-- ZUS/tax law parameters -->
-  <div class="card settings-card">
-    <div class="step-head"><h2>Параметры ZUS и налога (законодательные значения)</h2></div>
+  <div class="card" data-cat="params" id="settings-params">
+    <div class="step-head"><span class="cat-icon cat-params"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h12M4 10h12M4 14h12"/><circle cx="7.5" cy="6" r="1.7"/><circle cx="13.5" cy="10" r="1.7"/><circle cx="6" cy="14" r="1.7"/></svg></span><h2>Параметры ZUS и налога (законодательные значения)</h2></div>
     <p class="step-desc" style="margin-left:0;">Значения по умолчанию соответствуют законодательству на 2026 г. Меняйте их только если знаете, что ваша ситуация отличается, или когда изменятся правила в следующем году.</p>
     <div class="field-grid">
       <div class="field">
@@ -488,8 +512,8 @@
   </div>
 
   <!-- Data management -->
-  <div class="card settings-card">
-    <div class="step-head"><h2>Управление данными</h2></div>
+  <div class="card" data-cat="data" id="settings-data">
+    <div class="step-head"><span class="cat-icon cat-data"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="10" cy="5.3" rx="6.2" ry="2.3"/><path d="M3.8 5.3v9.4c0 1.3 2.8 2.3 6.2 2.3s6.2-1 6.2-2.3V5.3M3.8 10c0 1.3 2.8 2.3 6.2 2.3s6.2-1 6.2-2.3"/></svg></span><h2>Управление данными</h2></div>
     <p class="step-desc" style="margin-left:0;">Копия JSON содержит все данные — профиль, все месяцы, настройки. Переносите ей данные на другое устройство или делайте резервную копию.</p>
     <div class="actions" style="margin-left:0;">
       <button class="action" id="exportJsonBtn">Сохранить копию (JSON)</button>
@@ -522,6 +546,11 @@
     <strong>Сохранение данных:</strong> всё сохраняется автоматически в памяти браузера (localStorage) на этом устройстве.
     Регулярно делайте копию JSON, чтобы не потерять данные при очистке браузера и иметь возможность работать на другом устройстве.
   </footer>
+
+  </div>
+  <!-- /.settings-content -->
+  </div>
+  <!-- /.settings-layout -->
 
   </div>
   <!-- ============ /TAB: НАСТРОЙКИ ============ -->
