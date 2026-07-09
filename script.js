@@ -537,7 +537,15 @@
     const jstGv = buyer.idType !== 'none' ? `\n    <JST>${buyer.jst?1:2}</JST>\n    <GV>${buyer.gv?1:2}</GV>` : '';
 
     const platnoscForma = FORMA_PLATNOSCI[inv.paymentForm] || 6;
-    let platnoscXml = `  <Platnosc>\n    <FormaPlatnosci>${platnoscForma}</FormaPlatnosci>`;
+    let terminXml = '';
+    const payDays = parseInt(inv.paymentDays, 10);
+    if(!isNaN(payDays) && payDays > 0){
+      const d = new Date(inv.date + 'T00:00:00');
+      d.setDate(d.getDate() + payDays);
+      const dueDate = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+      terminXml = `\n    <TerminyPlatnosci>\n      <TerminPlatnosci>${dueDate}</TerminPlatnosci>\n    </TerminyPlatnosci>`;
+    }
+    let platnoscXml = `  <Platnosc>${terminXml}\n    <FormaPlatnosci>${platnoscForma}</FormaPlatnosci>`;
     if(seller.bank){
       platnoscXml += `\n    <RachunekBankowy>\n      <NrRB>${esc(seller.bank.replace(/\s+/g,''))}</NrRB>`;
       if(seller.bankSwift) platnoscXml += `\n      <SWIFT>${esc(seller.bankSwift)}</SWIFT>`;
@@ -545,6 +553,8 @@
       platnoscXml += `\n    </RachunekBankowy>`;
     }
     platnoscXml += `\n  </Platnosc>`;
+
+    const hasZw = inv.items.some(it => it.vat === 'zw');
 
     return `<?xml version="1.0" encoding="UTF-8"?>
 <!-- Рабочий файл — сгенерирован вспомогательно калькулятором, НЕ проверен официальной схемой XSD FA(3).
@@ -566,7 +576,10 @@
       <KodKraju>PL</KodKraju>
       <AdresL1>${esc(seller.street)}</AdresL1>
       <AdresL2>${esc(seller.zipCity)}</AdresL2>
-    </Adres>
+    </Adres>${seller.email ? `
+    <DaneKontaktowe>
+      <Email>${esc(seller.email)}</Email>
+    </DaneKontaktowe>` : ''}
   </Podmiot1>
   <Podmiot2>
     <DaneIdentyfikacyjne>
@@ -589,6 +602,16 @@ ${sumFields}    <P_15>${totals.gross.toFixed(2)}</P_15>
       <P_17>${inv.selfBilling ? 1 : 2}</P_17>
       <P_18>${inv.reverseCharge ? 1 : 2}</P_18>
       <P_18A>${inv.splitPayment ? 1 : 2}</P_18A>
+      <Zwolnienie>
+        ${hasZw ? '<P_19>1</P_19>\n        <P_19C>zwolnienie podmiotowe — art. 113 ust. 1 ustawy o VAT</P_19C>' : '<P_19N>1</P_19N>'}
+      </Zwolnienie>
+      <NoweSrodkiTransportu>
+        <P_22N>1</P_22N>
+      </NoweSrodkiTransportu>
+      <P_23>2</P_23>
+      <PMarzy>
+        <P_PMarzyN>1</P_PMarzyN>
+      </PMarzy>
     </Adnotacje>
     <RodzajFaktury>VAT</RodzajFaktury>
 ${linesXml}
@@ -606,6 +629,7 @@ ${platnoscXml}
       nip: document.getElementById('sellerNip').value,
       street: document.getElementById('sellerStreet').value,
       zipCity: document.getElementById('sellerZipCity').value,
+      email: document.getElementById('sellerEmail').value,
       bank: document.getElementById('sellerBank').value,
       bankName: document.getElementById('sellerBankName').value,
       bankSwift: document.getElementById('sellerBankSwift').value,
@@ -685,9 +709,11 @@ ${platnoscXml}
 
     const buyerIdLine = idType==='nip' ? `NIP ${esc(buyer.nip)}` : idType==='vatue' ? `${esc(buyer.country)} VAT ${esc(buyer.vatId)}` : '(без идентификатора)';
 
+    resetInvoiceForm();
+
     const preview = document.getElementById('invoicePreview');
     preview.innerHTML = `
-      <h3>Готово — предпросмотр счёта ${esc(inv.number)}</h3>
+      <h3>Готово — предпросмотр фактуры ${esc(inv.number)}</h3>
       <p style="margin:0 0 6px;">Добавлено в список месяца ${esc(monthLabel(periodKey))}. Скачайте XML-файл (рабочий) или просто перепишите данные ниже
       в бесплатное Aplikację Podatnika KSeF / e-mikrofirmę — это займёт пару секунд, и вы будете уверены в соответствии схеме.</p>
       <pre>Продавец: ${esc(seller.name)}, NIP ${esc(seller.nip)}
@@ -704,8 +730,6 @@ ${itemLines}
         <a class="action primary" style="text-decoration:none; display:inline-block;" href="${url}" download="faktura_${safeName}.xml">Скачать XML (рабочий)</a>
       </div>
     `;
-
-    resetInvoiceForm();
 
     state.activePeriod = periodKey;
     uiYear = parseInt(periodKey.slice(0,4), 10);
@@ -1574,83 +1598,118 @@ ${itemLines}
     downloadCsv(csv, 'nalog-god-' + year + '.csv');
   });
 
-  // ---------- ewidencja przychodów (PDF via print) ----------
-  function buildEvidencjaDoc(entries, periodLabel, groupByMonth){
-    const usedRates = Array.from(new Set(entries.map(e => e.row.rate))).sort((a,b)=>a-b);
+  // ---------- ewidencja przychodów (официальная форма, PDF via print) ----------
+  const EW_RATES = ['17','15','14','12.5','12','10','8.5','5.5','3'];
+  const MONTHS_PL = ['styczeń','luty','marzec','kwiecień','maj','czerwiec','lipiec','sierpień','wrzesień','październik','listopad','grudzień'];
+
+  function evidencjaMonthSection(mk, pageNo, carry){
+    const p = state.periods[mk];
+    const rows = p.rows.slice().sort((a,b)=>(a.date||'').localeCompare(b.date||'') || (a.id-b.id));
     const s = state.profile;
-    const addr = [s.street, s.zipCity].filter(Boolean).join(', ');
-    const idLine = [s.nip ? 'NIP ' + s.nip : '', s.pesel ? 'PESEL ' + s.pesel : ''].filter(Boolean).join(' · ');
-    const colCount = 3 + usedRates.length + 1;
+    const [y,m] = mk.split('-');
 
-    function buildRows(list){
-      let lp = 1;
-      let rowsHtml = '';
-      const totals = {}; usedRates.forEach(r => totals[r]=0);
-      let grand = 0;
-      list.forEach(({row}) => {
-        rowsHtml += `<tr><td>${lp++}</td><td>${esc(row.date)}</td><td>${esc(row.number)}</td>` +
-          usedRates.map(r => `<td class="num">${row.rate===r ? fmt(row.basis) : ''}</td>`).join('') +
-          `<td class="num razem">${fmt(row.basis)}</td></tr>`;
-        totals[row.rate] = (totals[row.rate]||0) + row.basis;
-        grand += row.basis;
-      });
-      return { rowsHtml, totals, grand };
-    }
+    const colSums = {}; EW_RATES.forEach(r => colSums[r]=0);
+    let totalSum = 0;
 
-    let bodyHtml = '';
-    const grandTotals = {}; usedRates.forEach(r=>grandTotals[r]=0);
-    let grandTotal = 0;
+    const trs = rows.map((row,i) => {
+      const rateKey = String(row.rate);
+      const known = EW_RATES.includes(rateKey);
+      if(known) colSums[rateKey] += row.basis||0;
+      totalSum += row.basis||0;
+      const nip = (row.snapshot && row.snapshot.buyer && row.snapshot.buyer.nip) ? row.snapshot.buyer.nip : '';
+      const rateCells = EW_RATES.map(r => `<td class="num">${r===rateKey ? fmt(row.basis) : ''}</td>`).join('');
+      const uwagi = known ? '' : `stawka ${rateKey}% — ${fmt(row.basis)} zł`;
+      return `<tr><td>${i+1}</td><td>${esc(row.date)}</td><td>${esc(row.date)}</td><td></td><td>${esc(row.number)}</td><td>${esc(nip)}</td>${rateCells}<td class="num">${fmt(row.basis)}</td><td>${uwagi}</td></tr>`;
+    }).join('');
 
-    if(groupByMonth){
-      const byMonth = {};
-      entries.forEach(e => { (byMonth[e.periodKey] = byMonth[e.periodKey]||[]).push(e); });
-      Object.keys(byMonth).sort().forEach(mk => {
-        const list = byMonth[mk].slice().sort((a,b)=> (a.row.date||'').localeCompare(b.row.date||''));
-        const { rowsHtml, totals, grand } = buildRows(list);
-        bodyHtml += `<tr class="month-row"><td colspan="${colCount}">${esc(monthLabel(mk))}</td></tr>` + rowsHtml;
-        bodyHtml += `<tr class="subtotal-row"><td colspan="3">Итого за ${esc(monthLabel(mk))}</td>` +
-          usedRates.map(r => `<td class="num">${fmt(totals[r]||0)}</td>`).join('') +
-          `<td class="num">${fmt(grand)}</td></tr>`;
-        usedRates.forEach(r => grandTotals[r] += totals[r]||0);
-        grandTotal += grand;
-      });
-    } else {
-      const list = entries.slice().sort((a,b)=> (a.row.date||'').localeCompare(b.row.date||''));
-      const built = buildRows(list);
-      bodyHtml = built.rowsHtml;
-      usedRates.forEach(r => grandTotals[r] = built.totals[r]||0);
-      grandTotal = built.grand;
-    }
+    const sumCells = tot => EW_RATES.map(r => `<td class="num">${fmt(tot[r]||0)}</td>`).join('');
+    const carryCells = EW_RATES.map(r => `<td class="num">${carry ? fmt(carry.colSums[r]||0) : ''}</td>`).join('');
+    const monthTotals = {}; EW_RATES.forEach(r => monthTotals[r] = (colSums[r]||0) + (carry ? (carry.colSums[r]||0) : 0));
+    const monthTotal = totalSum + (carry ? carry.totalSum : 0);
 
-    const totalRow = `<tr class="total-row"><td colspan="3">RAZEM / ИТОГО</td>` +
-      usedRates.map(r => `<td class="num">${fmt(grandTotals[r]||0)}</td>`).join('') +
-      `<td class="num">${fmt(grandTotal)}</td></tr>`;
+    const section = `<section class="ew-page">
+  <div class="ew-top">
+    <span class="ew-period">Miesiąc <strong>${MONTHS_PL[parseInt(m,10)-1]}</strong> rok <strong>${y}</strong></span>
+    <span class="ew-title">EWIDENCJA PRZYCHODÓW</span>
+    <span class="ew-nip">NIP: <strong>${esc(s.nip||'')}</strong></span>
+  </div>
+  <div class="ew-top2">
+    <span>Imię i nazwisko (firma): <strong>${esc(s.name||'')}</strong></span>
+    <span>strona ${pageNo}</span>
+  </div>
+  <table>
+    <colgroup>
+      <col class="c-lp"><col class="c-d1"><col class="c-d2"><col class="c-ksef"><col class="c-nr"><col class="c-id">
+      ${EW_RATES.map(() => '<col class="c-rate">').join('')}
+      <col class="c-sum"><col class="c-uw">
+    </colgroup>
+    <thead>
+      <tr>
+        <th rowspan="3">Lp.</th>
+        <th rowspan="3">Data wpisu</th>
+        <th rowspan="3">Data uzyskania przychodu</th>
+        <th colspan="2">Oznaczenie dowodu księgowego</th>
+        <th rowspan="3">Identyfikator podatkowy kontrahenta<sup>1)</sup></th>
+        <th colspan="9">Przychody objęte ryczałtem od przychodów ewidencjonowanych według stawki</th>
+        <th rowspan="3">Ogółem przychody (7+8+9+10+11+12+13+14+15)</th>
+        <th rowspan="3">Uwagi<sup>2)</sup></th>
+      </tr>
+      <tr>
+        <th rowspan="2">numer identyfikujący fakturę wystawioną przy użyciu Krajowego Systemu e-Faktur</th>
+        <th rowspan="2">numer dowodu księgowego</th>
+        ${EW_RATES.map(r => `<th>${r.replace('.',',')} %</th>`).join('')}
+      </tr>
+      <tr>${EW_RATES.map(() => `<th class="zlgr">zł, gr</th>`).join('')}</tr>
+      <tr class="colnums">${Array.from({length:17},(_,i)=>`<th>${i+1}</th>`).join('')}</tr>
+    </thead>
+    <tbody>${trs}</tbody>
+    <tfoot>
+      <tr><td colspan="6" class="lbl">Podsumowanie strony</td>${sumCells(colSums)}<td class="num">${fmt(totalSum)}</td><td></td></tr>
+      <tr><td colspan="6" class="lbl">Przeniesienie z poprzedniej strony</td>${carryCells}<td class="num">${carry ? fmt(carry.totalSum) : ''}</td><td></td></tr>
+      <tr><td colspan="6" class="lbl">Suma przychodów od początku miesiąca</td>${sumCells(monthTotals)}<td class="num">${fmt(monthTotal)}</td><td></td></tr>
+    </tfoot>
+  </table>
+  <p class="ew-fn"><sup>1)</sup> Identyfikator podatkowy kontrahenta obejmuje również kod kraju nadania identyfikatora. Kolumny 6 nie wypełnia się w przypadku zapisów dotyczących przychodów ze sprzedaży na podstawie dowodu wewnętrznego oraz raportów fiskalnych.<br>
+  <sup>2)</sup> Podatnicy, którzy zamierzają skorzystać z przewidzianej w art. 21 ust. 1a ustawy możliwości kwartalnego wpłacania ryczałtu od przychodów ewidencjonowanych, w kolumnie „Uwagi" mogą wpisywać datę otrzymania przychodu. Podatnicy, którzy na podstawie art. 15 ust. 1a ustawy są obowiązani w prowadzonej ewidencji wyodrębnić przychody objęte odpowiednio podatkiem tonażowym albo zryczałtowanym podatkiem od wartości sprzedanej produkcji i ryczałtem od przychodów ewidencjonowanych, przychody objęte odpowiednio podatkiem tonażowym albo zryczałtowanym podatkiem od wartości sprzedanej produkcji wykazują wyłącznie w kolumnie „Uwagi".</p>
+</section>`;
+    return { section, colSums, totalSum };
+  }
 
-    return `<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><title>Ewidencja przychodów — ${esc(periodLabel)}</title>
+  function buildEvidencjaDoc(monthKeys, docTitle){
+    let pages = '';
+    let pageNo = 0;
+    monthKeys.forEach(mk => {
+      const p = state.periods[mk];
+      if(!p || !p.rows.length) return;
+      pageNo++;
+      pages += evidencjaMonthSection(mk, pageNo, null).section;
+    });
+
+    return `<!DOCTYPE html><html lang="pl"><head><meta charset="UTF-8"><title>${esc(docTitle)}</title>
 <style>
   *{box-sizing:border-box;}
-  body{font-family: Arial, Helvetica, sans-serif; color:#111; margin:28px; font-size:12px;}
-  h1{font-size:16px; margin:0 0 4px;}
-  .sub{color:#444; font-size:11px; margin:0 0 2px;}
-  .meta{margin: 14px 0 18px; font-size:11.5px; color:#222;}
-  table{width:100%; border-collapse: collapse; margin-top:10px;}
-  th, td{border:1px solid #888; padding:4px 6px; font-size:11px;}
-  th{background:#eee; text-align:center; font-weight:700;}
-  td.num{text-align:right; font-variant-numeric: tabular-nums;}
-  tr.month-row td{background:#f3f3f3; font-weight:700;}
-  tr.subtotal-row td{font-weight:700; background:#fafafa;}
-  tr.total-row td{font-weight:800; background:#e4e4e4; border-top:2px solid #333;}
-  .footer-note{margin-top:22px; font-size:10px; color:#555;}
-  @media print{ body{margin:12mm;} }
+  @page{ size: A4 landscape; margin: 8mm; }
+  body{font-family: Arial, Helvetica, sans-serif; color:#000; margin:16px; font-size:9px;}
+  section.ew-page{ page-break-after: always; }
+  section.ew-page:last-child{ page-break-after: auto; }
+  .ew-top{display:flex; justify-content:space-between; align-items:baseline; gap:12px;}
+  .ew-title{font-size:14px; font-weight:800; letter-spacing:.02em;}
+  .ew-period, .ew-nip{font-size:9.5px;}
+  .ew-top2{display:flex; justify-content:space-between; margin:3px 0 6px; font-size:9.5px;}
+  table{width:100%; border-collapse: collapse; table-layout: fixed;}
+  th, td{border:1px solid #000; padding:2px 3px; font-size:8px; overflow-wrap:break-word; vertical-align:middle;}
+  th{text-align:center; font-weight:700; background:#fff;}
+  thead tr.colnums th{font-weight:400; font-size:7px; padding:1px;}
+  th.zlgr{font-weight:400; font-size:7px;}
+  td{height:14px;}
+  td.num{text-align:right; font-variant-numeric: tabular-nums; white-space:nowrap;}
+  tfoot td.lbl{font-weight:700; text-align:left;}
+  tfoot td{font-weight:700;}
+  col.c-lp{width:2.5%;} col.c-d1{width:5.5%;} col.c-d2{width:5.5%;} col.c-ksef{width:9%;} col.c-nr{width:7%;} col.c-id{width:7%;}
+  col.c-rate{width:5.2%;} col.c-sum{width:6.5%;} col.c-uw{width:8%;}
+  .ew-fn{font-size:6.8px; color:#000; margin-top:5px; line-height:1.35;}
 </style></head><body>
-<h1>Ewidencja przychodów (ryczałt od przychodów ewidencjonowanych)</h1>
-<p class="sub">${esc(s.name||'—')}${idLine ? ' · '+esc(idLine) : ''}${addr ? ' · '+esc(addr) : ''}</p>
-<div class="meta">Okres: <strong>${esc(periodLabel)}</strong> &nbsp;·&nbsp; Wygenerowano: ${esc(formatDateRu(new Date()))}</div>
-<table>
-  <thead><tr><th>Lp.</th><th>Data</th><th>Nr dowodu</th>${usedRates.map(r=>`<th>Stawka ${r}%</th>`).join('')}<th>Razem</th></tr></thead>
-  <tbody>${bodyHtml}${totalRow}</tbody>
-</table>
-<p class="footer-note">Wygenerowano automatycznie na podstawie zapisanych faktur. Ewidencja pomocnicza — nie zastępuje weryfikacji księgowej.</p>
+${pages}
 </body></html>`;
   }
 
@@ -1666,19 +1725,16 @@ ${itemLines}
 
   document.getElementById('printEvidencjaMonthBtn').addEventListener('click', () => {
     const key = state.activePeriod;
-    if(!key || !state.periods[key] || !state.periods[key].rows.length){ alert('Нет счетов за этот месяц.'); return; }
-    const entries = state.periods[key].rows.map(row => ({row, periodKey:key}));
-    openPrintDoc(buildEvidencjaDoc(entries, monthLabel(key), false));
+    if(!key || !state.periods[key] || !state.periods[key].rows.length){ alert('Нет фактур за этот месяц.'); return; }
+    openPrintDoc(buildEvidencjaDoc([key], 'Ewidencja przychodów — ' + monthLabel(key)));
   });
 
   document.getElementById('printEvidencjaYearBtn').addEventListener('click', () => {
     if(!state.activePeriod){ alert('Год не выбран.'); return; }
     const year = state.activePeriod.slice(0,4);
-    const keys = Object.keys(state.periods).filter(k => k.slice(0,4) === year).sort();
-    const entries = [];
-    keys.forEach(k => state.periods[k].rows.forEach(row => entries.push({row, periodKey:k})));
-    if(!entries.length){ alert('Нет счетов за этот год.'); return; }
-    openPrintDoc(buildEvidencjaDoc(entries, year+' год', true));
+    const keys = Object.keys(state.periods).filter(k => k.slice(0,4) === year && state.periods[k].rows.length).sort();
+    if(!keys.length){ alert('Нет фактур за этот год.'); return; }
+    openPrintDoc(buildEvidencjaDoc(keys, 'Ewidencja przychodów — ' + year));
   });
 
   document.getElementById('exportJsonBtn').addEventListener('click', () => {
