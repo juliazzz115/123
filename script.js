@@ -9,7 +9,7 @@
   const MONTHS_RU_SHORT = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
   const FORMA_PLATNOSCI = { 'перевод': 6, 'наличные': 1, 'карта': 2, 'BLIK': 7 };
   const KOD_TYTULU = { start: '0540', pref: '0570', maly: '0590', full: '0510' };
-  const PHASE_LABELS = { start: 'льгота на старт', pref: 'льготный ZUS', maly: 'Малый ZUS Plus', full: 'полный ZUS' };
+  const PHASE_LABELS = { start: 'льгота на старт', pref: 'льготный ZUS', maly: 'Малый ZUS Plus', full: 'полный ZUS', wakacje: 'каникулы ZUS (wakacje składkowe)' };
 
   const fmt = n => (Math.round((n||0)*100)/100).toLocaleString('ru-RU', {minimumFractionDigits:2, maximumFractionDigits:2});
   const round2 = n => Math.round((n||0)*100)/100;
@@ -27,6 +27,7 @@
         healthLow: 498.35, healthMid: 830.58, healthHigh: 1495.04,
         tierMode: 'auto',
         wypadkoweRate: 1.67, minWage: 4806, avgWageForecast: 9421,
+        ryczaltLimit: 8517200, quarterlyLimit: 851720,
         zusPhaseMode: 'auto', chorobowa: true,
         malyZusIncome: { revenue: 0, days: 365 },
         openingByYear: {}
@@ -174,7 +175,7 @@
       const floor = 0.3*s.minWage, ceil = 0.6*s.avgWageForecast;
       podstawa = round2(Math.min(ceil, Math.max(floor, raw)));
     }
-    const active = phase !== 'start';
+    const active = phase !== 'start' && phase !== 'wakacje';
     const emerytalna = active ? round2(podstawa*0.1952) : 0;
     const rentowa = active ? round2(podstawa*0.08) : 0;
     const wypadkowe = active ? round2(podstawa*(s.wypadkoweRate/100)) : 0;
@@ -254,14 +255,36 @@
   }
 
   // ---------- tabs ----------
+  const TAB_TITLES = { glavnaya: 'Главная', schety: 'Фактуры', dokumenty: 'Документы', ustawienia: 'Настройки' };
+
   function switchTab(tab){
     document.getElementById('tabGlavnaya').hidden = tab !== 'glavnaya';
     document.getElementById('tabSchety').hidden = tab !== 'schety';
     document.getElementById('tabDokumenty').hidden = tab !== 'dokumenty';
     document.getElementById('tabUstawienia').hidden = tab !== 'ustawienia';
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tab));
+    document.querySelectorAll('.drawer-link').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tab));
+    document.getElementById('topbarTitle').textContent = TAB_TITLES[tab] || '';
+    closeDrawer();
     window.scrollTo({top:0});
   }
+
+  function openDrawer(){
+    document.getElementById('navDrawer').classList.add('open');
+    document.getElementById('drawerOverlay').classList.add('open');
+    document.getElementById('navDrawer').setAttribute('aria-hidden', 'false');
+  }
+  function closeDrawer(){
+    document.getElementById('navDrawer').classList.remove('open');
+    document.getElementById('drawerOverlay').classList.remove('open');
+    document.getElementById('navDrawer').setAttribute('aria-hidden', 'true');
+  }
+  document.getElementById('burgerBtn').addEventListener('click', openDrawer);
+  document.getElementById('drawerCloseBtn').addEventListener('click', closeDrawer);
+  document.getElementById('drawerOverlay').addEventListener('click', closeDrawer);
+  document.querySelectorAll('.drawer-link').forEach(btn => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+  });
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
@@ -1094,7 +1117,7 @@ ${itemLines}
     refreshAllZusDependent();
   });
 
-  const zusRateFieldMap = { wypadkoweRateInput:'wypadkoweRate', minWageInput:'minWage', avgWageForecastInput:'avgWageForecast' };
+  const zusRateFieldMap = { wypadkoweRateInput:'wypadkoweRate', minWageInput:'minWage', avgWageForecastInput:'avgWageForecast', ryczaltLimitInput:'ryczaltLimit', quarterlyLimitInput:'quarterlyLimit' };
   Object.keys(zusRateFieldMap).forEach(id => {
     document.getElementById(id).addEventListener('input', () => {
       state.settings[zusRateFieldMap[id]] = parseFloat(document.getElementById(id).value) || 0;
@@ -1334,6 +1357,8 @@ ${itemLines}
     </div>`;
 
     document.getElementById('homeSteps').innerHTML = html;
+    renderDeadlines();
+    renderLimitWarning();
   }
 
   document.getElementById('tabGlavnaya').addEventListener('click', e => {
@@ -1351,6 +1376,116 @@ ${itemLines}
   });
 
   document.getElementById('onboardingGoBtn').addEventListener('click', () => switchTab('ustawienia'));
+
+  // ---------- ближайшие сроки и лимит рычалта ----------
+  function hasDataInYear(year){
+    return Object.keys(state.periods).some(k => k.slice(0,4) === year && state.periods[k].rows.length);
+  }
+
+  function yearRevenue(year){
+    let sum = state.settings.openingByYear[year] || 0;
+    Object.keys(state.periods).forEach(k => { if(k.slice(0,4) === year) sum += periodBasisSum(k); });
+    return sum;
+  }
+
+  function renderDeadlines(){
+    const el = document.getElementById('deadlinesList');
+    if(!el) return;
+    const today = new Date(); today.setHours(0,0,0,0);
+    const items = [];
+    const push = (date, label) => { if(date >= today) items.push({date, label}); };
+
+    // ZUS + аванс PIT-28 за прошлый месяц — до 20-го числа каждого месяца
+    for(let off = 0; off <= 1; off++){
+      const d = new Date(today.getFullYear(), today.getMonth() + off, 20);
+      if(d < today) continue;
+      const prev = new Date(d.getFullYear(), d.getMonth() - 1, 1);
+      const prevKey = prev.getFullYear() + '-' + String(prev.getMonth()+1).padStart(2,'0');
+      push(d, `Оплатить ZUS и подать DRA за ${monthLabel(prevKey)}`);
+      push(d, `Оплатить аванс PIT-28 за ${monthLabel(prevKey)}`);
+      if(items.length >= 2) break;
+    }
+
+    // годовая декларация PIT-28 — до 30 апреля (подача с 15 февраля)
+    const prevYear = String(today.getFullYear() - 1);
+    if(hasDataInYear(prevYear)){
+      push(new Date(today.getFullYear(), 3, 30), `Подать годовую декларацию PIT-28 за ${prevYear} год (с 15 февраля, через Twój e-PIT)`);
+      push(new Date(today.getFullYear(), 4, 20), `Годовой перерасчёт взноса на медстрахование за ${prevYear} год`);
+      const rec = computeAnnualHealthReconciliation(prevYear);
+      if(rec && rec.diff < -0.005) push(new Date(today.getFullYear(), 5, 1), `Подать RZS-R на возврат переплаты медвзноса (${fmt(-rec.diff)} zł)`);
+    }
+
+    // перерегистрация ZUS при смене фазы
+    if(state.settings.zusPhaseMode === 'auto'){
+      const info = getPhaseTransitionInfo();
+      if(info){
+        push(info.deadline1, 'Перерегистрация в ZUS: конец льготы на старт (ZWUA + ZUA, код 0570)');
+        push(info.deadline2, 'Перерегистрация в ZUS: конец льготного ZUS (ZWUA + ZUA, код 0510)');
+      }
+    }
+
+    items.sort((a,b) => a.date - b.date);
+    const daysTo = d => Math.round((d - today) / 86400000);
+    const badge = n => n === 0 ? 'сегодня!' : n === 1 ? 'завтра' : 'через ' + n + ' дн.';
+    el.innerHTML = items.slice(0, 5).map(it => {
+      const n = daysTo(it.date);
+      const urgent = n <= 7;
+      return `<li><span>${esc(it.label)}</span><span class="v" style="white-space:nowrap;${urgent ? 'color:var(--red);' : ''}">${formatDateRu(it.date)} · ${badge(n)}</span></li>`;
+    }).join('') || '<li><span>Ближайших сроков нет.</span><span class="v"></span></li>';
+  }
+
+  function renderLimitWarning(){
+    const box = document.getElementById('limitWarningBox');
+    if(!box) return;
+    const year = String(new Date().getFullYear());
+    const rev = yearRevenue(year);
+    const limit = state.settings.ryczaltLimit || 8517200;
+    if(rev >= limit){
+      box.style.display = 'block';
+      box.innerHTML = `<strong>Лимит рычалта превышен:</strong> доход за ${year} год — ${fmt(rev)} zł при лимите ${fmt(limit)} zł.
+        Со следующего года рычалт будет недоступен — придётся перейти на общие правила (skala) или линейный налог. Обсудите переход с бухгалтером заранее.`;
+    } else if(rev >= limit * 0.8){
+      box.style.display = 'block';
+      box.innerHTML = `<strong>Приближаетесь к лимиту рычалта:</strong> доход за ${year} год — ${fmt(rev)} zł (${Math.round(rev/limit*100)}% от лимита ${fmt(limit)} zł).
+        При превышении рычалт станет недоступен со следующего года.`;
+    } else {
+      box.style.display = 'none';
+    }
+  }
+
+  function renderAnnualPit(){
+    const body = document.getElementById('annualPitBody');
+    if(!body || !state.activePeriod) return;
+    const year = state.activePeriod.slice(0,4);
+    document.getElementById('annualPitYear').textContent = year + ' год';
+    const keys = Object.keys(state.periods).filter(k => k.slice(0,4) === year && state.periods[k].rows.length).sort();
+
+    const byRate = {};
+    let totalRevenue = 0, totalSocial = 0, totalHealth = 0, totalAdvance = 0;
+    keys.forEach(k => {
+      const c = computeForPeriod(k);
+      totalRevenue += c.sumBasis; totalSocial += c.social; totalHealth += c.healthUsed; totalAdvance += c.due;
+      state.periods[k].rows.forEach(r => { byRate[r.rate] = (byRate[r.rate]||0) + (r.basis||0); });
+    });
+
+    const rows = [];
+    Object.keys(byRate).sort((a,b)=>parseFloat(a)-parseFloat(b)).forEach(r => {
+      rows.push([`Доход по ставке ${r}%`, byRate[r]]);
+    });
+    rows.push(['Доход всего', totalRevenue]);
+    rows.push(['Уплачено социальных взносов (вычет)', totalSocial]);
+    rows.push(['Начислено взносов на медстрахование (50% — вычет)', totalHealth]);
+    rows.push(['Сумма месячных авансов PIT-28', totalAdvance]);
+
+    body.innerHTML = rows.length > 4 || totalRevenue > 0
+      ? rows.map(r => `<tr><td>${esc(r[0])}</td><td class="num">${fmt(r[1])} zł</td></tr>`).join('')
+      : '<tr class="empty-row"><td colspan="2">Нет данных за этот год.</td></tr>';
+
+    const qLimit = state.settings.quarterlyLimit || 851720;
+    document.getElementById('quarterlyHint').innerHTML = totalRevenue <= qLimit
+      ? `Доход за ${year} год (${fmt(totalRevenue)} zł) не превышает ${fmt(qLimit)} zł — со следующего года вы имеете право платить рычалт <strong>раз в квартал</strong> (до 20-го числа месяца после квартала). О выборе квартальной оплаты сообщается в годовой декларации PIT-28.`
+      : `Доход за ${year} год выше ${fmt(qLimit)} zł — квартальная оплата рычалта со следующего года недоступна, платите помесячно.`;
+  }
 
   function shiftHomeMonth(delta){
     const key = state.activePeriod || currentMonthKey();
@@ -1402,11 +1537,15 @@ ${itemLines}
     const phase = c.phase;
     const sb = computeSocialBreakdown(phase, key);
     const kod = KOD_TYTULU[phase] || '—';
-    kodEl.innerHTML = `Фаза: <strong>${PHASE_LABELS[phase]}</strong>. Код титула страхования (ориентировочно): <strong>${kod}</strong>.
+    kodEl.innerHTML = phase === 'wakacje'
+      ? `Фаза: <strong>${PHASE_LABELS[phase]}</strong>. Социальные взносы за этот месяц финансирует государство —
+        заявление RWS-1 подаётся через PUE/eZUS в месяце, предшествующем каникулам. Медвзнос платится как обычно,
+        декларацию ZUS DRA подать всё равно нужно (до 20-го числа следующего месяца).`
+      : `Фаза: <strong>${PHASE_LABELS[phase]}</strong>. Код титула страхования (ориентировочно): <strong>${kod}</strong>.
       Декларацию ZUS DRA за ${esc(monthLabel(key))} подайте до 20-го числа следующего месяца, электронно через PUE/eZUS.`;
 
     const rows = [];
-    if(phase !== 'start'){
+    if(phase !== 'start' && phase !== 'wakacje'){
       rows.push(['Пенсионный', sb.podstawa, sb.emerytalna]);
       rows.push(['По инвалидности', sb.podstawa, sb.rentowa]);
       rows.push(['От несчастных случаев', sb.podstawa, sb.wypadkowe]);
@@ -1454,6 +1593,7 @@ ${itemLines}
     document.getElementById('yearSumRevenue').textContent = fmt(sumRev);
     document.getElementById('yearSumTaxBase').textContent = fmt(sumTaxBase);
     document.getElementById('yearSumTax').textContent = fmt(sumTax);
+    renderAnnualPit();
   }
 
   // ---------- year / month switcher (Налоги tab) ----------
@@ -1804,6 +1944,8 @@ ${pages}
     document.getElementById('wypadkoweRateInput').value = state.settings.wypadkoweRate;
     document.getElementById('minWageInput').value = state.settings.minWage;
     document.getElementById('avgWageForecastInput').value = state.settings.avgWageForecast;
+    document.getElementById('ryczaltLimitInput').value = state.settings.ryczaltLimit;
+    document.getElementById('quarterlyLimitInput').value = state.settings.quarterlyLimit;
     document.getElementById('zusPhaseModeSelect').value = state.settings.zusPhaseMode;
     document.getElementById('chorobowaGlobalCheck').checked = state.settings.chorobowa;
     document.getElementById('malyRevenuePrevInput').value = state.settings.malyZusIncome.revenue;

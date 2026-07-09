@@ -57,6 +57,42 @@ html,body{
 .tab-btn:hover{ background: rgba(255,255,255,.08); color:#fff; }
 .tab-btn.active{ background: var(--blue); color:#fff; }
 
+.burger-btn{
+  display:none; background:none; border:none; color:#fff; cursor:pointer;
+  width:38px; height:38px; border-radius:9px; align-items:center; justify-content:center; flex-shrink:0;
+}
+.burger-btn svg{ width:22px; height:22px; }
+.burger-btn:active{ background: rgba(255,255,255,.12); }
+.topbar-title{ display:none; font-weight:750; font-size:15.5px; flex:1; min-width:0; }
+
+.drawer-overlay{
+  position:fixed; inset:0; background:rgba(13,20,38,.45); z-index:90; opacity:0; pointer-events:none;
+  transition: opacity .2s;
+}
+.drawer-overlay.open{ opacity:1; pointer-events:auto; }
+.nav-drawer{
+  position:fixed; top:0; left:0; bottom:0; width:min(300px, 84vw); z-index:100;
+  background: var(--card); box-shadow: 0 0 40px rgba(13,20,38,.3);
+  transform: translateX(-105%); transition: transform .22s ease;
+  display:flex; flex-direction:column; gap:4px;
+  padding: calc(14px + env(safe-area-inset-top, 0px)) 12px 14px;
+}
+.nav-drawer.open{ transform: translateX(0); }
+.nav-drawer-head{ display:flex; align-items:center; justify-content:space-between; padding: 2px 6px 12px; }
+.drawer-close{
+  background:none; border:none; font-size:26px; line-height:1; color:var(--muted); cursor:pointer;
+  width:36px; height:36px; border-radius:9px;
+}
+.drawer-link{
+  display:flex; align-items:center; gap:12px; width:100%; text-align:left;
+  background:none; border:none; cursor:pointer; padding: 11px 10px; border-radius: 12px;
+  font-family:inherit; color: var(--ink);
+}
+.drawer-link:hover, .drawer-link:active{ background: var(--bg); }
+.drawer-link.active{ background: var(--c-blue-tint); }
+.drawer-link strong{ display:block; font-size:14.5px; }
+.drawer-link small{ display:block; color:var(--muted); font-size:12px; margin-top:1px; }
+
 .save-status{
   display:flex; align-items:center; gap:6px; font-size: 11.5px; color: rgba(255,255,255,.6);
   white-space:nowrap; flex-shrink:0;
@@ -337,7 +373,7 @@ footer.note{
 .tax-grid{
   display:grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items:start;
 }
-.tax-grid > .card{ margin-bottom: 0; }
+.tax-grid > .card{ margin-bottom: 0; min-width: 0; }
 @media (max-width: 1000px){ .tax-grid{ grid-template-columns: 1fr; } }
 
 /* ---------------- settings tab: sidebar + content ---------------- */
@@ -384,11 +420,15 @@ footer.note{
     padding-bottom: calc(70px + env(safe-area-inset-bottom, 0px));
   }
   .topbar-inner{
-    padding: 0 10px; gap: 8px; height: 50px;
+    padding: 0 10px; gap: 8px; height: 52px;
     padding-left: max(10px, env(safe-area-inset-left, 0px));
     padding-right: max(10px, env(safe-area-inset-right, 0px));
   }
-  .tab-btn{ padding: 7px 10px; font-size: 12.5px; }
+  .topbar-tabs{ display:none; }
+  .topbar .topbar-brand{ display:none; }
+  .nav-drawer .topbar-brand{ display:flex; }
+  .burger-btn{ display:flex; }
+  .topbar-title{ display:block; }
   #saveStatusText{ display:none; }
 
   .card{ padding: 18px 14px; border-radius: 14px; }
