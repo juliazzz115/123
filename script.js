@@ -469,9 +469,9 @@
         <td class="hm"><input type="text" data-id="${it.id}" data-f="unit" value="${esc(it.unit)}" style="width:60px;border:1px solid var(--line);border-radius:6px;padding:5px 6px;font-size:12.5px;"></td>
         <td class="num"><input type="number" data-id="${it.id}" data-f="price" value="${it.price}" step="0.01" style="width:84px;text-align:right;border:1px solid var(--line);border-radius:6px;padding:5px 6px;font-size:12.5px;"></td>
         <td class="hm"><select data-id="${it.id}" data-f="vat" style="border:1px solid var(--line);border-radius:6px;padding:5px 6px;font-size:12.5px;">${vatSelectHtml(it.vat)}</select></td>
-        <td class="num hm">${fmt(c.net)}</td>
-        <td class="num hm">${fmt(c.vatAmount)}</td>
-        <td class="num hm">${fmt(c.gross)}</td>
+        <td class="num hm c-net">${fmt(c.net)}</td>
+        <td class="num hm c-vat">${fmt(c.vatAmount)}</td>
+        <td class="num hm c-gross">${fmt(c.gross)}</td>
         <td><button class="del-btn" data-id="${it.id}" title="Удалить позицию">&times;</button></td>
       `;
       body.appendChild(tr);
@@ -483,13 +483,27 @@
     document.getElementById('draftSumVat').textContent = fmt(sumVat);
     document.getElementById('draftSumGross').textContent = fmt(sumGross);
 
+    // Обновляем модель и вычисленные ячейки БЕЗ пересборки таблицы —
+    // иначе поле теряет фокус после каждого символа.
+    function updateDraftTotals(){
+      let n=0, v=0, g=0;
+      draftItems.forEach(it => { const c = calcItem(it); n+=c.net; v+=c.vatAmount; g+=c.gross; });
+      document.getElementById('draftSumNet').textContent = fmt(n);
+      document.getElementById('draftSumVat').textContent = fmt(v);
+      document.getElementById('draftSumGross').textContent = fmt(g);
+    }
     body.querySelectorAll('input,select').forEach(el => {
       el.addEventListener('input', () => {
         const it = draftItems.find(x => x.id == el.dataset.id);
         if(!it) return;
         const f = el.dataset.f;
         it[f] = (f==='qty' || f==='price') ? parseFloat(el.value)||0 : el.value;
-        renderDraftItems();
+        const tr = el.closest('tr');
+        const c = calcItem(it);
+        tr.querySelector('.c-net').textContent = fmt(c.net);
+        tr.querySelector('.c-vat').textContent = fmt(c.vatAmount);
+        tr.querySelector('.c-gross').textContent = fmt(c.gross);
+        updateDraftTotals();
       });
     });
     body.querySelectorAll('.del-btn').forEach(btn => {
@@ -975,10 +989,15 @@ ${itemLines}
       });
     });
     tbody.querySelectorAll('[data-role="basis"]').forEach(inp => {
+      // модель обновляем на каждый символ, а перерисовку — только когда поле покинуто,
+      // иначе фокус теряется после первого символа
       inp.addEventListener('input', () => {
         const row = state.periods[inp.dataset.period].rows.find(r => r.id == inp.dataset.id);
         if(row) row.basis = parseFloat(inp.value) || 0;
-        saveState(); renderInvoiceList(); renderYearSummary(); updateSummary(); renderYearMonthSwitcher();
+        saveState();
+      });
+      inp.addEventListener('change', () => {
+        renderInvoiceList(); renderYearSummary(); updateSummary(); renderYearMonthSwitcher();
       });
     });
     tbody.querySelectorAll('[data-role="rate"]').forEach(sel => {
@@ -1883,20 +1902,35 @@ ${pages}
 </body></html>`;
   }
 
-  function openPrintDoc(html){
-    const w = window.open('', '_blank');
-    if(!w){ alert('Разрешите всплывающие окна для этого сайта, чтобы напечатать документ.'); return; }
-    w.document.open();
-    w.document.write(html);
-    w.document.close();
-    w.focus();
-    setTimeout(() => { w.print(); }, 350);
+  function openPrintDoc(html, title){
+    const overlay = document.getElementById('printOverlay');
+    document.getElementById('printOverlayTitle').textContent = title || 'Документ';
+    document.getElementById('printFrame').srcdoc = html;
+    overlay.hidden = false;
+    document.body.style.overflow = 'hidden';
   }
+  function closePrintDoc(){
+    document.getElementById('printOverlay').hidden = true;
+    document.body.style.overflow = '';
+  }
+  document.getElementById('printBackBtn').addEventListener('click', closePrintDoc);
+  document.getElementById('printDocBtn').addEventListener('click', () => {
+    const frame = document.getElementById('printFrame');
+    try{
+      frame.contentWindow.focus();
+      frame.contentWindow.print();
+    }catch(e){
+      alert('Если диалог печати не открылся: нажмите «Поделиться» в браузере → «Напечатать» — там же можно сохранить в PDF.');
+    }
+  });
+  document.addEventListener('keydown', e => {
+    if(e.key === 'Escape' && !document.getElementById('printOverlay').hidden) closePrintDoc();
+  });
 
   document.getElementById('printEvidencjaMonthBtn').addEventListener('click', () => {
     const key = state.activePeriod;
     if(!key || !state.periods[key] || !state.periods[key].rows.length){ alert('Нет фактур за этот месяц.'); return; }
-    openPrintDoc(buildEvidencjaDoc([key], 'Ewidencja przychodów — ' + monthLabel(key)));
+    openPrintDoc(buildEvidencjaDoc([key], 'Ewidencja przychodów — ' + monthLabel(key)), 'Эвиденция — ' + monthLabel(key));
   });
 
   document.getElementById('printEvidencjaYearBtn').addEventListener('click', () => {
@@ -1904,7 +1938,7 @@ ${pages}
     const year = state.activePeriod.slice(0,4);
     const keys = Object.keys(state.periods).filter(k => k.slice(0,4) === year && state.periods[k].rows.length).sort();
     if(!keys.length){ alert('Нет фактур за этот год.'); return; }
-    openPrintDoc(buildEvidencjaDoc(keys, 'Ewidencja przychodów — ' + year));
+    openPrintDoc(buildEvidencjaDoc(keys, 'Ewidencja przychodów — ' + year), 'Эвиденция — ' + year + ' год');
   });
 
   document.getElementById('exportJsonBtn').addEventListener('click', () => {

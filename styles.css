@@ -380,6 +380,20 @@ footer.note{
   padding: 18px 20px; background: #f4f6fb; border-radius: var(--radius-sm);
 }
 
+/* ---------------- in-app document viewer ---------------- */
+.print-overlay{
+  position: fixed; inset: 0; z-index: 200; background: #fff;
+  display: flex; flex-direction: column;
+}
+.print-overlay[hidden]{ display: none; }
+.print-overlay-bar{
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: calc(10px + env(safe-area-inset-top, 0px)) 14px 10px;
+  border-bottom: 1px solid var(--line); background: var(--card); flex-shrink: 0;
+}
+.print-overlay-bar strong{ font-size: 14px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.print-overlay iframe{ flex: 1; border: 0; width: 100%; background: #fff; }
+
 /* ---------------- tax tab: side-by-side ZUS / PIT ---------------- */
 .tax-grid{
   display:grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items:start;
@@ -487,7 +501,17 @@ footer.note{
   .result-list li{ flex-wrap: wrap; }
   .total-box{ padding: 16px 18px; }
   .total-box .amount{ font-size: 27px; }
-  .actions .action{ flex: 1 1 auto; text-align: center; }
+  .actions .action{ flex: 1 1 auto; text-align: center; min-height: 44px; }
+
+  /* крупнее элементы под палец */
+  .year-nav-btn{ width: 40px; height: 40px; font-size: 18px; }
+  .del-btn, .dup-btn{ width: 32px; height: 32px; font-size: 15px; }
+  .month-del{ width: 22px; height: 22px; font-size: 13px; }
+  .copy-btn{ padding: 7px 12px; font-size: 12.5px; }
+  .link-btn{ font-size: 13.5px; padding: 6px 0; }
+  .inline-details summary{ font-size: 13.5px; padding: 8px 0; }
+  .notice-details summary{ padding: 8px 0; }
+  tbody td{ padding: 10px 8px; }
 }
 
 /* ---------------- home tab ---------------- */

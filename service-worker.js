@@ -1,4 +1,4 @@
-const CACHE_NAME = 'jdg-ryczalt-v3';
+const CACHE_NAME = 'jdg-ryczalt-v4';
 const SHELL_FILES = [
   './',
   './index.html',
@@ -27,20 +27,18 @@ self.addEventListener('activate', event => {
   );
 });
 
+// Сначала сеть (чтобы обновления приезжали сразу), кэш — только когда офлайн.
 self.addEventListener('fetch', event => {
   if(event.request.method !== 'GET') return;
   event.respondWith(
-    caches.match(event.request).then(cached => {
-      const network = fetch(event.request)
-        .then(resp => {
-          if(resp && resp.ok){
-            const copy = resp.clone();
-            caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
-          }
-          return resp;
-        })
-        .catch(() => cached);
-      return cached || network;
-    })
+    fetch(event.request)
+      .then(resp => {
+        if(resp && resp.ok){
+          const copy = resp.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
+        }
+        return resp;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
